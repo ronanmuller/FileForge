@@ -52,9 +52,17 @@ public static class DependencyInjection
             {
                 var definition = @interface.GetGenericTypeDefinition();
 
-                // Requisição: exatamente um handler por tipo.
+                // Requisição: exatamente um handler por tipo. Dois handlers diferentes = erro de configuração.
                 if (definition == typeof(IRequestHandler<,>))
-                    services.TryAddScoped(@interface, implementation);
+                {
+                    var existente = services.FirstOrDefault(d => d.ServiceType == @interface);
+                    if (existente is null)
+                        services.AddScoped(@interface, implementation);
+                    else if (existente.ImplementationType != implementation)
+                        throw new InvalidOperationException(
+                            $"Mais de um handler para '{@interface.GenericTypeArguments[0].Name}': " +
+                            $"'{existente.ImplementationType?.Name}' e '{implementation.Name}'.");
+                }
 
                 // Notificação: vários handlers por tipo, mas sem repetir a mesma implementação.
                 else if (definition == typeof(INotificationHandler<>))
