@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      CI: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (versão do global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore FileForge.sln
+
+      - name: Verificar formatação (.editorconfig)
+        run: dotnet format FileForge.sln --verify-no-changes --no-restore
+
+      - name: Build (warnings = errors)
+        run: dotnet build FileForge.sln -c Release --no-restore
+
+      - name: Test + cobertura
+        run: >
+          dotnet test FileForge.sln -c Release --no-build
+          --logger "trx;LogFilePrefix=results"
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
+
+      - name: Relatório de cobertura
+        if: always()
+        uses: danielpalme/ReportGenerator-GitHub-Action@5
+        with:
+          reports: TestResults/**/coverage.cobertura.xml
+          targetdir: TestResults/report
+          reporttypes: MarkdownSummaryGithub
+          classfilters: "-FileForge.*.UnitTests*;-FileForge.IntegrationTests*"
+
+      - name: Publicar resumo da cobertura
+        if: always()
+        run: cat TestResults/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
