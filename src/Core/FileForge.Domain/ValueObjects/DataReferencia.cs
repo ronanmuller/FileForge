@@ -15,7 +15,7 @@ public sealed class DataReferencia : ValueObject
     {
         ArgumentNullException.ThrowIfNull(relogio);
 
-        return valor > DateOnly.FromDateTime(relogio.UtcNow)
+        return valor > relogio.Hoje
             ? DomainErrors.DataReferencia.NoFuturo
             : new DataReferencia(valor);
     }

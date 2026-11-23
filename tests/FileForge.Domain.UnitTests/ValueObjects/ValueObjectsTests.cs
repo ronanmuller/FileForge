@@ -91,12 +91,7 @@ public class DinheiroTests
 
 public class DataReferenciaTests
 {
-    private sealed class RelogioFixo(DateTime utcNow) : IDateTimeProvider
-    {
-        public DateTime UtcNow { get; } = utcNow;
-    }
-
-    private static readonly IDateTimeProvider Relogio = new RelogioFixo(new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc));
+    private static readonly IDateTimeProvider Relogio = new RelogioFake();
 
     [Fact]
     public void Criar_NoFuturo_DeveFalhar() =>
@@ -111,5 +106,16 @@ public class DataReferenciaTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(new DateOnly(ano, mes, dia), result.Value.Valor);
+    }
+
+    [Fact]
+    public void Criar_As22hEmSaoPaulo_AmanhaEmUtc_AindaEhFuturo()
+    {
+        // 15/01 22:00 em São Paulo = 16/01 01:00 UTC. Para o negócio, 16/01 ainda é amanhã.
+        var relogio = new RelogioFake(new DateTime(2025, 1, 16, 1, 0, 0, DateTimeKind.Utc));
+
+        var result = DataReferencia.Criar(new DateOnly(2025, 1, 16), relogio);
+
+        Assert.Equal(DomainErrors.DataReferencia.NoFuturo, result.Error);
     }
 }

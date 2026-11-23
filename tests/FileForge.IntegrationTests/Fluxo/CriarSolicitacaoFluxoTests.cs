@@ -15,6 +15,7 @@ public sealed class CriarSolicitacaoFluxoTests : IDisposable
     private sealed class RelogioFixo : IDateTimeProvider
     {
         public DateTime UtcNow => new(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        public DateOnly Hoje => new(2025, 1, 15);
     }
 
     private readonly ServiceProvider _root;
