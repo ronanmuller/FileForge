@@ -483,5 +483,11 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 12 | 6 | `IDateTimeProvider` no domínio | testes determinísticos | relógio injetado nos métodos |
 | 13 | 6 | Unicidade de solicitação ativa fica na Application | envolve vários aggregates | + índice único na etapa 9 |
 | 14 | 6 | Projeto `FileForge.IntegrationTests` | ver as peças juntas e debugar | protótipo de handler; vira Testcontainers na etapa 17 |
+| 15 | Review | `IDateTimeProvider.Hoje` no fuso do negócio (São Paulo) | às 22h em SP, em UTC já é amanhã: "data no futuro" era aceita | regras de calendário usam `Hoje`; `UtcNow` só para registrar instantes |
+| 16 | Review | `DomainEvent` recebe `OccurredOnUtc` no construtor | ele lia `DateTime.UtcNow`, contrariando a decisão 12 | eventos determinísticos nos testes |
+| 17 | Review | Validar todas as entradas **antes** de alterar o estado | exceção no meio deixava o aggregate pela metade | métodos começam com guardas, depois mutam |
+| 18 | Review | `Publish` não agrega cancelamento; 1 falha = exceção original | cancelamento ficava escondido em `AggregateException` | `catch` específico para `OperationCanceledException` |
+| 19 | Review | Dois handlers para o mesmo request = erro na inicialização | `TryAdd` descartava o segundo sem avisar | falha rápida (*fail fast*) na configuração do DI |
+| 20 | Review | Todos os arquivos em UTF-8 | acentos quebrados em 2 arquivos | `.editorconfig` com `charset = utf-8` |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->
