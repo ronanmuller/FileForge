@@ -1,94 +1,227 @@
 # FileForge
 
-> Projeto de **estudos** em .NET 9. N�o � um projeto de empresa e n�o tem levantamento de requisitos formal: a ideia � aplicar o estado da arte em arquitetura, design patterns e ferramentas de mercado em um �nico projeto completo.
+> Projeto de **estudos** em .NET 9. Não é um projeto de empresa e não tem levantamento formal de requisitos: o objetivo é aplicar, **por etapas e entendendo cada decisão**, as melhores práticas de arquitetura, design patterns e ferramentas de mercado.
 
-## ?? Objetivo
+---
 
-Uma aplica��o que:
+## 🤝 Forma de trabalho (leia antes de continuar)
 
-1. Recebe uma **solicita��o** com `ClienteId` + `DataReferencia`;
-2. **Busca dados** do cliente no banco (dom�nio fict�cio, ex.: transa��es/movimenta��es);
-3. **Processa** esses dados (agrega��es, regras, valida��es);
-4. **Gera um arquivo sequencial** (layout posicional/fixed-width, estilo CNAB: header, detalhes, trailer);
-5. **Envia o arquivo para um bucket** (S3/MinIO ou Azure Blob/Azurite);
-6. Notifica a conclus�o (evento).
+1. **Etapas pequenas**: discutir → decidir → implementar → testar → atualizar este README.
+2. **Nada de gerar código em massa**: cada etapa precisa ser entendida antes da próxima.
+3. **Mudanças estruturais** (`.sln`, `.csproj`, criar/excluir projetos ou pastas) só com confirmação prévia, agrupadas em uma única vez (evita recarregamentos do Visual Studio).
+4. **Verificar o que já existe** antes de criar qualquer coisa.
+5. **Confirmar que os arquivos foram gravados** e que `dotnet test` passa antes de dar uma etapa como concluída.
+6. Este README é a **fonte de verdade** do contexto do projeto. Atualize o roadmap e o diário a cada etapa.
 
-O processamento � **ass�ncrono**: a API aceita o pedido (`202 Accepted`), e workers processam em background.
+---
+
+## 🎯 Objetivo
+
+1. Receber uma **solicitação** com `ClienteId` + `DataReferencia`;
+2. **Buscar** as transações do cliente (via **Repository**);
+3. **Processar** os dados (validações, agregações, totais);
+4. **Gerar um arquivo sequencial** (layout posicional/fixed-width, estilo CNAB: header, detalhes, trailer);
+5. **Enviar o arquivo para um bucket** (S3/MinIO ou Azure Blob/Azurite);
+6. Publicar um evento de conclusão.
+
+O processamento é **assíncrono**: a API aceita o pedido (`202 Accepted`) e workers processam em background.
 
 ```
-Cliente ??? API ??? (Outbox) ??? Broker ??? Worker ??? SQL/NoSQL ??? Gerador de Arquivo ??? Bucket
-                ?                                 ?
-                ???? Redis (idempot�ncia/cache)   ???? Evento "ArquivoGerado"
+Cliente ──► API ──► (Outbox) ──► Broker ──► Worker ──► Repositórios (SQL/NoSQL) ──► Gerador de Arquivo ──► Bucket
+                │                                 │
+                └──► Redis (idempotência/cache)   └──► Evento "ArquivoGerado"
 ```
 
-## ?? Princ�pios e pr�ticas
+---
+
+## 🏦 Domínio fictício: Extrato de Transações Financeiras
+
+### Linguagem ubíqua
+
+| Termo | Significado |
+|---|---|
+| **Cliente** | Titular das contas. Identificado por `ClienteId`. |
+| **Conta** | Conta do cliente (agência + número). |
+| **Transação** | Movimento financeiro (crédito/débito) em uma conta, em uma data. |
+| **Solicitação de Arquivo** | Pedido para gerar o extrato de um cliente em uma data de referência. |
+| **Arquivo de Extrato** | Arquivo sequencial gerado (header + detalhes + trailer) e enviado ao bucket. |
+
+### Aggregates (decidido)
+
+| Aggregate Root | Contém | Observação |
+|---|---|---|
+| `Cliente` | `Conta` (entity) | Regra: não permitir conta duplicada (agência + número). |
+| `Transacao` | — | **Aggregate próprio**, referencia `ContaId` por ID. Um cliente pode ter milhões de transações; colocá-las dentro de `Cliente` seria inviável (carga e concorrência). |
+| `SolicitacaoArquivo` | — | **Centro do domínio**: unicidade por cliente/data, máquina de status, eventos. Referencia `ClienteId` por ID. |
+
+Regras de DDD adotadas:
+- **Aggregates pequenos** (Vaughn Vernon): um aggregate protege só as invariantes que precisam ser consistentes na mesma transação.
+- **Referência entre aggregates somente por ID**, nunca pelo objeto.
+- **Um aggregate alterado por commit.**
+
+**Value Objects**: `ClienteId`, `ContaId`, `TransacaoId`, `SolicitacaoArquivoId`, `Documento` (CPF/CNPJ), `Dinheiro`, `DataReferencia`, `TipoTransacao`, `NomeArquivo`.
+
+**Domain Events**: `SolicitacaoArquivoCriada`, `ProcessamentoIniciado`, `ArquivoGerado`, `ProcessamentoFalhou`.
+
+```mermaid
+classDiagram
+    class Cliente { <<AggregateRoot>> ClienteId Id; string Nome; Documento Documento; List~Conta~ Contas }
+    class Conta { <<Entity>> ContaId Id; string Agencia; string Numero }
+    class Transacao { <<AggregateRoot>> TransacaoId Id; ContaId ContaId; DateOnly Data; Dinheiro Valor; TipoTransacao Tipo }
+    class SolicitacaoArquivo { <<AggregateRoot>> SolicitacaoArquivoId Id; ClienteId ClienteId; DataReferencia Data; Status Status }
+    Cliente "1" *-- "N" Conta
+    Transacao ..> Conta : ContaId
+    SolicitacaoArquivo ..> Cliente : ClienteId
+```
+
+### Invariantes
+
+- Só pode existir **uma solicitação ativa** por `ClienteId + DataReferencia` (base da idempotência).
+- `DataReferencia` não pode estar no futuro.
+- Transições de status: `Pendente → Processando → Concluida | Falhou` (e `Falhou → Pendente` para reprocessar).
+- Valores monetários nunca negativos; o sinal é dado pelo `TipoTransacao` (Crédito/Débito).
+
+### Repository Pattern
+
+- **Um repositório por Aggregate Root** (nunca por entidade filha): `IClienteRepository`, `ITransacaoRepository`, `ISolicitacaoArquivoRepository`.
+- **Interfaces no Domain**, **implementações na Infrastructure** (EF Core / MongoDB) → Inversão de Dependência (o "D" do SOLID).
+- O repositório **não faz commit**: quem confirma é o **Unit of Work** (`IUnitOfWork.SaveChangesAsync`).
+- Leitura em massa para o arquivo via **streaming** (`IAsyncEnumerable<Transacao>`), sem carregar tudo em memória.
+
+```csharp
+public interface ISolicitacaoArquivoRepository
+{
+    Task<SolicitacaoArquivo?> ObterPorIdAsync(SolicitacaoArquivoId id, CancellationToken ct);
+    Task<bool> ExisteAtivaAsync(ClienteId clienteId, DataReferencia data, CancellationToken ct);
+    void Adicionar(SolicitacaoArquivo solicitacao);
+}
+
+public interface ITransacaoRepository
+{
+    IAsyncEnumerable<Transacao> ListarPorClienteEDataAsync(ClienteId clienteId, DataReferencia data, CancellationToken ct);
+}
+```
+
+> Contratos iniciais; serão refinados na etapa 7.
+
+---
+
+## ⚠️ Tratamento de erros (decidido)
+
+**Exceção é para o excepcional; falha de negócio esperada é resultado.**
+
+| Tipo de falha | Exemplo | Tratamento |
+|---|---|---|
+| Regra de negócio | Solicitação já ativa, data no futuro | `Result.Failure(Error)` |
+| Entrada inválida | `ClienteId` vazio | Validação (FluentValidation em behavior) → `ErrorType.Validation` |
+| Bug | `null` inesperado, estado impossível | Exceção (`ArgumentNullException`, `InvalidOperationException`) — corrige-se o código |
+| Infra transitória | Timeout no banco/bucket | Exceção + **Polly** (retry, circuit breaker) |
+| Infra persistente | Mensagem que sempre falha | Exceção → retries limitados → **dead-letter queue** |
+
+| Camada | Regra |
+|---|---|
+| Domain | VOs com construtor privado + fábrica `Criar(...)` → `Result<T>`. Métodos do aggregate retornam `Result`. Exceção só para bug. |
+| Application | Encadeia `Result`s (`Bind`/`Map`); nunca faz `catch` genérico. |
+| Infrastructure | Deixa a exceção subir; Polly trata as transitórias; sem `catch` só para logar. |
+| API | `IExceptionHandler` global → **ProblemDetails** (RFC 9457) 500 sem detalhes internos. `Result` com falha → ProblemDetails: Validation→400, NotFound→404, Conflict→409. |
+| Worker | Exceção → retry → dead-letter. Falha de negócio → solicitação `Falhou` + evento. |
+
+Complementos:
+- **Catálogo de erros por aggregate**: `SolicitacaoArquivoErrors.JaExisteAtiva` (códigos consistentes e testáveis).
+- **Logar uma única vez**, na borda (API/Worker).
+- `throw;` e nunca `throw ex;`.
+- **Pendente**: o `Result` guarda um único `Error`; a validação precisará de vários (`ValidationError` com lista). Resolver na etapa 8.
+
+---
+
+## 🧱 Princípios e práticas
 
 | Tema | O que aplicar |
 |---|---|
-| Arquitetura | Clean Architecture, DDD (Entities, Value Objects, Aggregates, Domain Events), Vertical Slices na Application |
-| C�digo | Clean Code, SOLID, CQRS |
-| Mediator | **Pr�prio** (`FileForge.Mediator`), sem MediatR, com Pipeline Behaviors |
-| Erros | **Result Pattern** (`Result`/`Result<T>`) em vez de exce��es para fluxo de neg�cio |
-| Persist�ncia | **Unit of Work**, Repository, EF Core (SQL), MongoDB (NoSQL) |
-| Mensageria | **Outbox Pattern**, Inbox/consumidor idempotente, RabbitMQ (ou Kafka) |
-| Idempot�ncia | `Idempotency-Key` na API + chave natural (`ClienteId + Data`) + Redis/locks distribu�dos |
-| Resili�ncia | **Polly** (retry, circuit breaker, timeout) via `Microsoft.Extensions.Http.Resilience` |
-| Cache | **Redis** (cache distribu�do, locks, idempot�ncia) |
-| Observabilidade | **OpenTelemetry** (traces, m�tricas, logs), Serilog, Health Checks, Grafana/Seq/Jaeger |
-| Escalabilidade | Workers stateless, escala horizontal, processamento por streaming (`IAsyncEnumerable`), backpressure com `Channels` |
-| Valida��o | FluentValidation via Pipeline Behavior |
-| Testes | xUnit, NSubstitute, FluentAssertions, Testcontainers, testes de arquitetura (NetArchTest) |
-| Infra | Docker Compose, **.NET Aspire** (orquestra��o local), CI com GitHub Actions |
-| Seguran�a | Autentica��o JWT, rate limiting, secrets fora do c�digo |
+| Arquitetura | Clean Architecture, DDD, Vertical Slices na Application |
+| Código | Clean Code, SOLID, CQRS |
+| Mediator | **Próprio** (`FileForge.Mediator`), sem MediatR, com Pipeline Behaviors |
+| Erros | **Result Pattern** (`Result`/`Result<T>` + `Map`/`Bind`/`Match`) |
+| Persistência | **Repository**, **Unit of Work**, EF Core (SQL), MongoDB (NoSQL) |
+| Mensageria | **Outbox**, consumidor idempotente, RabbitMQ (ou Kafka) |
+| Idempotência | `Idempotency-Key` na API + chave natural (`ClienteId + Data`) + Redis/locks |
+| Resiliência | **Polly** via `Microsoft.Extensions.Http.Resilience` |
+| Cache | **Redis** |
+| Observabilidade | **OpenTelemetry**, Serilog, Health Checks |
+| Escalabilidade | Workers stateless, streaming (`IAsyncEnumerable`), backpressure com `Channels` |
+| Testes | xUnit, Testcontainers, NetArchTest |
+| Infra | Docker Compose, **.NET Aspire**, GitHub Actions |
+| Padrão de código | `.editorconfig` (UTF-8, namespaces file-scoped, `_camelCase` em campos privados) |
 
-## ?? Estrutura (alvo)
+### Convenção de idioma
+
+- **Domínio** em **português** (linguagem ubíqua): `SolicitacaoArquivo`, `Transacao`, `ObterPorIdAsync`.
+- **Infraestrutura técnica/genérica** em **inglês**: `Entity`, `AggregateRoot`, `Result`, `IMediator`, `IUnitOfWork`.
+- Comentários, mensagens de erro e nomes de testes em **português**.
+
+---
+
+## 📁 Estrutura
 
 ```
 src/
   BuildingBlocks/
-    FileForge.SharedKernel      ? Entity, ValueObject, IDomainEvent, Result, IDateTimeProvider
-    FileForge.Mediator          ? IMediator, IRequest, INotification, IPipelineBehavior, DI
-  FileForge.Domain              ? Cliente, Transacao, SolicitacaoArquivo (aggregate), eventos
-  FileForge.Application         ? Commands/Queries, Handlers, Behaviors, abstra��es (IFileStorage, IUnitOfWork)
-  FileForge.Infrastructure      ? EF Core, MongoDB, Redis, Outbox, Bucket, Polly, Broker
-  FileForge.Api                 ? Minimal APIs, idempot�ncia, versionamento, ProblemDetails
-  FileForge.Worker              ? Consumidores, processador de outbox, gerador de arquivo
-  FileForge.AppHost             ? .NET Aspire
+    FileForge.SharedKernel      ✅ Entity, AggregateRoot, ValueObject, DomainEvent, Result (+ Map/Bind/Match), IUnitOfWork, IDateTimeProvider
+    FileForge.Mediator          ✅ IMediator (ISender/IPublisher), IRequest, INotification, IPipelineBehavior, DI
+  Core/
+    FileForge.Domain            🚧 referencia SharedKernel (NÃO referencia Mediator)
+    FileForge.Application       ⏳ vazio (etapa 8)
+  FileForge.Infrastructure      ⏳
+  FileForge.Api                 ⏳
+  FileForge.Worker              ⏳
+  FileForge.AppHost             ⏳ .NET Aspire
 tests/
-  *.UnitTests / *.IntegrationTests / *.ArchitectureTests   ?
+  FileForge.Mediator.UnitTests      ✅
+  FileForge.SharedKernel.UnitTests  ✅
+  FileForge.Domain.UnitTests        🚧
 ```
 
-## ?? Fluxo principal
+---
 
-1. `POST /solicitacoes-arquivo` `{ clienteId, dataReferencia }` + header `Idempotency-Key`.
-2. Handler cria o aggregate `SolicitacaoArquivo` (status `Pendente`) e grava, **na mesma transa��o** (UoW), a mensagem no **Outbox**.
-3. Um processador de outbox publica `SolicitacaoArquivoCriada` no broker (com Polly).
-4. O worker consome a mensagem de forma idempotente, busca os dados (SQL + leitura NoSQL), processa e gera o arquivo via streaming.
-5. Faz upload para o bucket, atualiza o status (`Concluida`/`Falhou`) e publica `ArquivoGerado`.
-6. `GET /solicitacoes-arquivo/{id}` consulta o status (com cache Redis).
+> 📘 Para entender **por que** o código é assim, leia o [GUIA-DO-PROJETO.md](GUIA-DO-PROJETO.md).
 
-## ??? Roadmap
+## 🗺️ Roadmap
 
-- [x] SharedKernel (Entity, ValueObject, Domain Events, Result)
-- [x] Mediator pr�prio com pipeline behaviors
-- [x] Testes do Mediator e do Result
-- [ ] Domain: aggregates, value objects, eventos
-- [ ] Application: command de cria��o + query de status + behaviors (valida��o, logging)
-- [ ] Infrastructure: EF Core + Unit of Work + Outbox
-- [ ] API com idempot�ncia
-- [ ] Worker + gera��o do arquivo sequencial
-- [ ] Bucket (MinIO/Azurite) + Polly
-- [ ] Redis (cache, idempot�ncia, lock distribu�do)
-- [ ] MongoDB (read model / logs de processamento)
-- [ ] OpenTelemetry + Health Checks + dashboards
-- [ ] Docker Compose / .NET Aspire
-- [ ] Testcontainers + testes de arquitetura
-- [ ] CI (GitHub Actions)
+- [x] Etapa 1 — SharedKernel
+- [x] Etapa 2 — Mediator próprio com pipeline behaviors
+- [x] Etapa 3 — Testes do Mediator e do Result
+- [x] Etapa 4 — Correções de qualidade (UTF-8, `Publish` sem reflection por chamada, DI idempotente, `Map/Bind/Match`, `IUnitOfWork` em arquivo próprio, `.editorconfig`)
+- [x] Etapa 5 — Modelagem do domínio e decisão de tratamento de erros
+- [x] Etapa 6 — Domain com TDD
+  - [x] 6.1 Value Objects
+  - [x] 6.2 Aggregate `Cliente` + `Conta`
+  - [x] 6.3 Aggregate `Transacao`
+  - [x] 6.4 Aggregate `SolicitacaoArquivo` (status + eventos)
+- [ ] Etapa 7 — Interfaces de repositório + Unit of Work
+- [ ] Etapa 8 — Application: command + query + behaviors (+ `ValidationError`)
+- [ ] Etapa 9 — Infrastructure: EF Core + repositórios + Outbox
+- [ ] Etapa 10 — API com idempotência + ProblemDetails
+- [ ] Etapa 11 — Worker + geração do arquivo sequencial
+- [ ] Etapa 12 — Bucket (MinIO/Azurite) + Polly
+- [ ] Etapa 13 — Redis
+- [ ] Etapa 14 — MongoDB
+- [ ] Etapa 15 — OpenTelemetry + Health Checks
+- [ ] Etapa 16 — Docker Compose / .NET Aspire
+- [ ] Etapa 17 — Testcontainers + testes de arquitetura
+- [ ] Etapa 18 — CI (GitHub Actions)
 
-## ?? Di�rio de decis�es
+---
 
-- **Mediator pr�prio:** constru�do para estudar o padr�o (e porque o MediatR passou a ter licen�a comercial).
-- **Result Pattern:** falhas de neg�cio s�o valores, n�o exce��es.
-- **Ass�ncrono por padr�o:** a API n�o gera o arquivo; ela s� registra a inten��o.
+## 📝 Diário de decisões
 
-> Atualize o roadmap e o di�rio a cada etapa conclu�da.
+- **Mediator próprio**: para estudar o padrão (e porque o MediatR passou a ter licença comercial).
+- **Result Pattern** para negócio; exceções para bug/infra; ProblemDetails na API.
+- **Assíncrono por padrão**: a API apenas registra a intenção.
+- **`Publish` com wrapper cacheado**: se um handler falhar, os demais executam e as falhas são reunidas em `AggregateException`.
+- **Registro no DI idempotente** (`TryAdd*`).
+- **Domínio fictício**: extrato de transações financeiras, arquivo estilo CNAB.
+- **`Transacao` é aggregate próprio** (completo, para estudo), com referência por ID.
+- **`SolicitacaoArquivo` é o centro do domínio**.
+- **Repository por Aggregate Root**, sem commit próprio (Unit of Work).
+- **Domain não depende do Mediator**: eventos usam `IDomainEvent` do SharedKernel; a ponte fica na Application.
+- **Estrutura de pastas**: `src/BuildingBlocks` (genérico) e `src/Core` (Domain/Application).

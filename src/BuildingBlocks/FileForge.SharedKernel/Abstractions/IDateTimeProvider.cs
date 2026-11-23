@@ -1,11 +1,7 @@
 namespace FileForge.SharedKernel.Abstractions;
 
+/// <summary>Abstrai o relógio do sistema para permitir testes determinísticos.</summary>
 public interface IDateTimeProvider
 {
     DateTime UtcNow { get; }
-}
-
-public interface IUnitOfWork
-{
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

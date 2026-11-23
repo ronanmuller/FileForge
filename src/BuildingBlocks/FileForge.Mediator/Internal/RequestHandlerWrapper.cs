@@ -3,8 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace FileForge.Mediator.Internal;
 
 /// <summary>
-/// O <see cref="Mediator"/> sÛ conhece <c>IRequest&lt;TResponse&gt;</c>, n„o o tipo concreto da requisiÁ„o.
-/// Este wrapper È criado uma vez por tipo (via reflection, depois cacheado) e "recupera" o TRequest
+/// O <see cref="Mediator"/> s√≥ conhece <c>IRequest&lt;TResponse&gt;</c>, n√£o o tipo concreto da requisi√ß√£o.
+/// Este wrapper √© criado uma vez por tipo (via reflection, depois cacheado) e "recupera" o TRequest
 /// para resolver o handler e os behaviors de forma fortemente tipada.
 /// </summary>
 internal abstract class RequestHandlerWrapper<TResponse>
@@ -26,7 +26,7 @@ internal sealed class RequestHandlerWrapperImpl<TRequest, TResponse> : RequestHa
 
         RequestHandlerDelegate<TResponse> pipeline = () => handler.Handle(typedRequest, cancellationToken);
 
-        // Monta a "cebola" de dentro para fora: o primeiro behavior registrado È o mais externo.
+        // Monta a "cebola" de dentro para fora: o primeiro behavior registrado √© o mais externo.
         var behaviors = serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>().Reverse();
         foreach (var behavior in behaviors)
         {

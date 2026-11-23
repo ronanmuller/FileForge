@@ -1,6 +1,6 @@
 namespace FileForge.Mediator;
 
-/// <summary>Marca uma mensagem que pode ter zero ou v·rios handlers (ex.: eventos de domÌnio).</summary>
+/// <summary>Marca uma mensagem que pode ter zero ou v√°rios handlers (ex.: eventos de dom√≠nio).</summary>
 public interface INotification;
 
 public interface INotificationHandler<in TNotification> where TNotification : INotification
