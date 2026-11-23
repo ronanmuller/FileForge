@@ -1,6 +1,6 @@
 using FileForge.Domain.Erros;
 using FileForge.Domain.Solicitacoes;
-using FileForge.Domain.ValueObjects;
+using FileForge.Domain.UnitTests.Builders;
 
 namespace FileForge.Domain.UnitTests.Aggregates;
 
@@ -8,8 +8,7 @@ public class SolicitacaoArquivoTests
 {
     private readonly RelogioFake _relogio = new();
 
-    private SolicitacaoArquivo NovaSolicitacao() =>
-        SolicitacaoArquivo.Criar(ClienteId.Novo(), DataReferencia.Criar(new DateOnly(2025, 1, 10), _relogio).Value, _relogio);
+    private SolicitacaoArquivo NovaSolicitacao() => Um.Solicitacao().ComRelogio(_relogio).Build();
 
     [Fact]
     public void Criar_DeveFicarPendenteEAtiva_ERegistrarEvento()
@@ -66,8 +65,7 @@ public class SolicitacaoArquivoTests
     [Fact]
     public void IniciarProcessamento_DuasVezes_DeveFalhar()
     {
-        var s = NovaSolicitacao();
-        s.IniciarProcessamento(_relogio);
+        var s = Um.Solicitacao().Processando().Build();
 
         Assert.Equal(DomainErrors.SolicitacaoArquivo.TransicaoInvalida, s.IniciarProcessamento(_relogio).Error);
     }
@@ -75,9 +73,7 @@ public class SolicitacaoArquivoTests
     [Fact]
     public void Reprocessar_Concluida_DeveFalhar()
     {
-        var s = NovaSolicitacao();
-        s.IniciarProcessamento(_relogio);
-        s.Concluir("a.txt", _relogio);
+        var s = Um.Solicitacao().Concluida().Build();
 
         Assert.Equal(DomainErrors.SolicitacaoArquivo.TransicaoInvalida, s.Reprocessar(_relogio).Error);
     }

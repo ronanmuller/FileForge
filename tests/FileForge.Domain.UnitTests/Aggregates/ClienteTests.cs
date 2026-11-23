@@ -1,13 +1,13 @@
 using FileForge.Domain.Clientes;
 using FileForge.Domain.Erros;
+using FileForge.Domain.UnitTests.Builders;
 using FileForge.Domain.ValueObjects;
 
 namespace FileForge.Domain.UnitTests.Aggregates;
 
 public class ClienteTests
 {
-    private static Cliente NovoCliente() =>
-        Cliente.Criar("Maria", Documento.Criar("52998224725").Value).Value;
+    private static Cliente NovoCliente() => Um.Cliente().ComNome("Maria").Build();
 
     [Theory]
     [InlineData(null)]
@@ -39,8 +39,7 @@ public class ClienteTests
     [Fact]
     public void AdicionarConta_Duplicada_DeveFalhar()
     {
-        var cliente = NovoCliente();
-        cliente.AdicionarConta("0001", "123456");
+        var cliente = Um.Cliente().ComConta("0001", "123456").Build();
 
         var result = cliente.AdicionarConta(" 0001 ", "123456");
 

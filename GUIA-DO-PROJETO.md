@@ -399,6 +399,77 @@ public sealed record DomainEventNotification(IDomainEvent Evento) : INotificatio
 | Indireção desnecessária em CRUD | O valor aqui está nos behaviors |
 | Reflection é lenta | Só na 1ª chamada por tipo; depois cache |
 
+### 8.7 Logs e observabilidade: `LogDefinitions` + `LoggingBehavior`
+
+**Onde:** `src/Core/FileForge.Application/Logging/LogDefinitions.cs` e `Behaviors/LoggingBehavior.cs`.
+
+```csharp
+[LoggerMessage(EventId = 1002, Level = LogLevel.Warning,
+    Message = "{RequestName} falhou por regra de negócio em {ElapsedMs} ms: {ErrorCode} - {ErrorMessage}")]
+public static partial void RequisicaoFalhouNegocio(this ILogger logger, ...);
+```
+
+| Por que um catálogo central | Explicação |
+|---|---|
+| `[LoggerMessage]` (source generator) | O compilador gera o código: sem boxing, sem parse do template em runtime, checa `IsEnabled` antes. É a forma recomendada pela Microsoft para alto desempenho |
+| `EventId` fixo por log | Dá para filtrar/alertar por ID no Seq, Grafana ou App Insights ("alerta se o 1003 subir") |
+| Log estruturado (`{ErrorCode}`) | Vira campo pesquisável, não texto solto |
+| Tudo num lugar | Mensagens consistentes; fácil revisar o que o sistema loga |
+
+**Regra:** logar **uma vez, na borda**. O `LoggingBehavior` é o behavior mais externo e loga início, fim, duração e desfecho de **toda** requisição. Handlers e Domain não logam (o Domain nem pode: o teste de arquitetura proíbe `Microsoft.Extensions.Logging` no Domain).
+
+| Desfecho | Nível | EventId |
+|---|---|---|
+| Sucesso | Information | 1001 |
+| `Result.Failure` (negócio) | **Warning** — é esperado, não é bug | 1002 |
+| Exceção | **Error** + stack trace, e relança | 1003 |
+| Cancelamento | não loga como erro | — |
+| Acima de 500 ms | Warning extra | 1004 |
+
+**Por que não Serilog/OpenTelemetry já?** O código depende só de `ILogger` (abstração). Serilog e OpenTelemetry são configurados no *host* (API/Worker) e **não exigem mudar nenhum log**. Então: logs agora; exportação (Serilog → Seq, OTel → traces/métricas) quando existir a API (etapas 10 e 15).
+
+### 8.8 Registro de dependências (IoC): um `AddX()` por camada
+
+```csharp
+// API/Worker (composition root) — único lugar que conhece todas as camadas
+builder.Services
+    .AddApplication()                 // FileForge.Application/DependencyInjection.cs
+    .AddInfrastructure(configuration); // etapa 9
+```
+
+- Cada camada sabe registrar **o que ela tem** (handlers, behaviors, repositórios).
+- O `Program.cs` fica com poucas linhas e não conhece detalhes internos.
+- **Evitamos** um projeto único `CrossCutting.IoC` que referencia tudo: ele vira um "buraco" por onde qualquer camada enxerga qualquer outra, quebrando a regra das dependências.
+- Testado: `DependencyInjectionTests` monta o container com `ValidateOnBuild` — erro de registro aparece no teste, não em produção.
+
+### 8.9 Estamos prontos para Outbox, filas e consumidores?
+
+**A base sim; a implementação é das etapas 9 e 11.** O que já existe e o que falta:
+
+| Peça | Status | Onde / quando |
+|---|---|---|
+| Aggregates acumulam eventos sem saber quem consome | ✅ | `AggregateRoot.DomainEvents` |
+| Eventos imutáveis, com `EventId` e horário determinístico | ✅ | `DomainEvent` (`EventId` serve para deduplicar) |
+| `Unit of Work` sem commit nos repositórios | ✅ (contrato) | `IUnitOfWork` |
+| Status `Pendente → Processando`, `Tentativas` | ✅ | `SolicitacaoArquivo` (base para retry e DLQ) |
+| **Outbox**: salvar eventos na mesma transação | ⏳ etapa 9 | interceptor do EF Core grava `OutboxMessage` no `SaveChanges` |
+| **Publicador do Outbox** (background) | ⏳ etapa 9/11 | lê pendentes → publica no broker → marca como enviada |
+| **Broker** (RabbitMQ) + consumidor | ⏳ etapa 11 | Worker consome `SolicitacaoArquivoCriada` |
+| **Consumidor idempotente** (Inbox) | ⏳ etapa 11 | tabela de mensagens já processadas pelo `EventId` |
+| Retry + dead-letter queue | ⏳ etapa 11/12 | Polly + limite de `Tentativas` |
+| Abstração `IEventBus` na Application | ⏳ etapa 8 | para não acoplar a Application ao RabbitMQ |
+
+```mermaid
+flowchart LR
+    H["Handler"] -->|"SaveChanges"| DB[("Banco<br/>Solicitacao + OutboxMessage<br/>MESMA transação")]
+    DB --> P["OutboxPublisher<br/>(background)"]
+    P -->|"publica"| Q[["RabbitMQ"]]
+    Q --> W["Worker<br/>consumidor idempotente"]
+    W -->|"falhou N vezes"| DLQ[["Dead-letter"]]
+```
+
+**Garantia:** *at-least-once* (pelo menos uma vez). Uma mensagem pode chegar **duplicada**, por isso o consumidor precisa ser idempotente — e o `EventId` e a `SolicitacaoArquivo` com status já foram desenhados para isso.
+
 ---
 
 ## 9. Detalhes de código que parecem estranhos
@@ -423,6 +494,9 @@ public sealed record DomainEventNotification(IDomainEvent Evento) : INotificatio
 | `FileForge.SharedKernel.UnitTests` | unitário | `Result`, `Map/Bind/Match` |
 | `FileForge.Mediator.UnitTests` | unitário | Send, Publish, pipeline, DI |
 | `FileForge.Domain.UnitTests` | unitário | Value Objects, aggregates, máquina de status |
+| `FileForge.Domain.UnitTests/Builders` | **apoio** | Test Data Builders: `Um.Cliente().ComConta().Build()`, `Um.Solicitacao().Concluida().Build()` |
+| `FileForge.Application.UnitTests` | unitário | `LoggingBehavior` (níveis e EventIds), `AddApplication` |
+| `FileForge.ArchitectureTests` | **arquitetura** | regras do guia viram testes: direção das dependências, `sealed`, sem setter/construtor público |
 | `FileForge.Domain.UnitTests/Estudo` | **didático** | demonstra os conceitos deste guia |
 | `FileForge.IntegrationTests` | integração | DI real + Mediator + Behavior + Domain juntos |
 
@@ -494,5 +568,10 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 23 | Qualidade | `global.json` + `nuget.config` com fonte única | build igual em qualquer máquina e no CI | fontes NuGet da máquina não interferem |
 | 24 | Qualidade | Supressões de analisador documentadas no `.editorconfig` | CA1716/CA1711 não se aplicam (C#-only, convenção do Mediator) | toda exceção à regra tem justificativa escrita |
 | 25 | CI | GitHub Actions: format → build Release → test + cobertura | feedback automático a cada push/PR | badge no README; cobertura no resumo do workflow |
+| 26 | Observabilidade | `LogDefinitions` com `[LoggerMessage]` + `LoggingBehavior` | logs consistentes, performáticos e pesquisáveis por `EventId` | handlers não logam; exportadores (Serilog/OTel) só no host |
+| 27 | Observabilidade | Falha de negócio = Warning; exceção = Error; cancelamento não é erro | alertas só para o que é bug de verdade | menos ruído em produção |
+| 28 | IoC | `AddX()` por camada, sem projeto `CrossCutting.IoC` | cada camada registra o que é dela; composition root fica na API/Worker | `AddApplication()` testado com `ValidateOnBuild` |
+| 29 | Testes | Testes de arquitetura com reflection + NetArchTest | as regras do guia deixam de depender de disciplina | teste de sanidade garante que os filtros não "passam no vazio" |
+| 30 | Testes | Test Data Builders (`Um.X()`) | testes declaram só o que importa; builders usam as transições reais | mudança no construtor de um aggregate afeta um lugar só |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->

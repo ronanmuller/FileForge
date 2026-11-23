@@ -1,5 +1,5 @@
 <Project>
-  <!-- Central Package Management: versões definidas uma única vez para toda a solução. -->
+  <!-- Central Package Management: versÃƒÂµes definidas uma ÃƒÂºnica vez para toda a soluÃƒÂ§ÃƒÂ£o. -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
@@ -7,10 +7,13 @@
   <ItemGroup Label="Runtime">
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testes">
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />

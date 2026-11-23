@@ -173,7 +173,7 @@ src/
     FileForge.Mediator          ✅ IMediator (ISender/IPublisher), IRequest, INotification, IPipelineBehavior, DI
   Core/
     FileForge.Domain            🚧 referencia SharedKernel (NÃO referencia Mediator)
-    FileForge.Application       ⏳ vazio (etapa 8)
+    FileForge.Application       🚧 LogDefinitions, LoggingBehavior, AddApplication()
   FileForge.Infrastructure      ⏳
   FileForge.Api                 ⏳
   FileForge.Worker              ⏳
@@ -210,7 +210,7 @@ tests/
 - [ ] Etapa 14 — MongoDB
 - [ ] Etapa 15 — OpenTelemetry + Health Checks
 - [ ] Etapa 16 — Docker Compose / .NET Aspire
-- [ ] Etapa 17 — Testcontainers + testes de arquitetura
+- [ ] Etapa 17 — Testcontainers (testes de arquitetura ✅ antecipados)
 - [ ] Etapa 18 — CI (GitHub Actions)
 
 ---
