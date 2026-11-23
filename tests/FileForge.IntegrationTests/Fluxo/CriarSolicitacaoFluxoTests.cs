@@ -113,7 +113,7 @@ public sealed class CriarSolicitacaoFluxoTests : IDisposable
 
         Assert.Equal(
             ["evento:SolicitacaoArquivoCriada", "evento:ProcessamentoIniciado", "evento:ArquivoGerado"],
-            Get<Rastro>().Passos.Where(p => p.StartsWith("evento:")));
+            Get<Rastro>().Passos.Where(p => p.StartsWith("evento:", StringComparison.Ordinal)));
     }
 
     public void Dispose()

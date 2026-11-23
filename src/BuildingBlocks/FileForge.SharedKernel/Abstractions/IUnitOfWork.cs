@@ -1,4 +1,4 @@
-﻿namespace FileForge.SharedKernel.Abstractions;
+namespace FileForge.SharedKernel.Abstractions;
 
 /// <summary>
 /// Unit of Work: confirma, em uma única transação, todas as alterações feitas pelos repositórios.

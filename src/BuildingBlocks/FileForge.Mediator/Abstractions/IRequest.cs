@@ -1,4 +1,4 @@
-﻿namespace FileForge.Mediator;
+namespace FileForge.Mediator;
 
 /// <summary>Marca uma mensagem (comando ou consulta) que produz uma resposta.</summary>
 public interface IRequest<out TResponse>;

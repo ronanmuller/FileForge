@@ -24,5 +24,5 @@ public sealed class Dinheiro : ValueObject
         yield return Valor;
     }
 
-    public override string ToString() => Valor.ToString("F2");
+    public override string ToString() => Valor.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
 }

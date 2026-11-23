@@ -25,5 +25,5 @@ public sealed class DataReferencia : ValueObject
         yield return Valor;
     }
 
-    public override string ToString() => Valor.ToString("yyyy-MM-dd");
+    public override string ToString() => Valor.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 }

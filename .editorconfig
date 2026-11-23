@@ -48,3 +48,17 @@ dotnet_naming_rule.interfaces_prefix_i.severity = warning
 dotnet_naming_symbols.interfaces.applicable_kinds = interface
 dotnet_naming_style.prefix_i.required_prefix = I
 dotnet_naming_style.prefix_i.capitalization = pascal_case
+
+# Analisadores: exceções justificadas (TreatWarningsAsErrors está ligado no Directory.Build.props)
+# CA1716: nomes como 'Error' e o parâmetro 'next' só conflitam com palavras reservadas do VB.NET; projeto é C#-only.
+dotnet_diagnostic.CA1716.severity = none
+# CA1711: 'RequestHandlerDelegate' segue a convenção consagrada do padrão Mediator.
+dotnet_diagnostic.CA1711.severity = none
+
+[tests/**.cs]
+# Nomes de teste em português com underscore: Metodo_Cenario_Resultado.
+dotnet_diagnostic.CA1707.severity = none
+# Testes não são biblioteca: ConfigureAwait e validação de argumentos públicos não se aplicam.
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1062.severity = none
+
