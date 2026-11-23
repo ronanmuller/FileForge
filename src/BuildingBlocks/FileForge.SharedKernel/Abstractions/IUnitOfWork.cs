@@ -1,7 +1,7 @@
-namespace FileForge.SharedKernel.Abstractions;
+ï»¿namespace FileForge.SharedKernel.Abstractions;
 
 /// <summary>
-/// Unit of Work: confirma, em uma única transação, todas as alterações feitas pelos repositórios.
+/// Unit of Work: confirma, em uma Ãºnica transaÃ§Ã£o, todas as alteraÃ§Ãµes feitas pelos repositÃ³rios.
 /// </summary>
 public interface IUnitOfWork
 {
