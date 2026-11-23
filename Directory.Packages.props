@@ -1,5 +1,5 @@
-<Project>
-  <!-- Central Package Management: versÃƒÂµes definidas uma ÃƒÂºnica vez para toda a soluÃƒÂ§ÃƒÂ£o. -->
+﻿<Project>
+  <!-- Central Package Management: versÃƒÆ’Ã‚Âµes definidas uma ÃƒÆ’Ã‚Âºnica vez para toda a soluÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o. -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
@@ -9,6 +9,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testes">

@@ -4,7 +4,7 @@ using FileForge.SharedKernel.Domain;
 namespace FileForge.Domain.Solicitacoes;
 
 public sealed record SolicitacaoArquivoCriada(
-    SolicitacaoArquivoId SolicitacaoId, ClienteId ClienteId, DateOnly DataReferencia, DateTime OccurredOnUtc)
+    SolicitacaoArquivoId SolicitacaoId, ClienteId ClienteId, DateOnly DataReferencia, string SolicitadoPor, DateTime OccurredOnUtc)
     : DomainEvent(OccurredOnUtc);
 
 public sealed record ProcessamentoIniciado(SolicitacaoArquivoId SolicitacaoId, int Tentativa, DateTime OccurredOnUtc)

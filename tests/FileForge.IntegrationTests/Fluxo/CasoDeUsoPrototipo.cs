@@ -30,7 +30,7 @@ public sealed class CriarSolicitacaoHandler(
         if (repositorio.ExisteAtiva(clienteId.Value, data.Value))
             return Task.FromResult<Result<Guid>>(DomainErrors.SolicitacaoArquivo.JaExisteAtiva);
 
-        var solicitacao = SolicitacaoArquivo.Criar(clienteId.Value, data.Value, relogio);
+        var solicitacao = SolicitacaoArquivo.Criar(clienteId.Value, data.Value, "usuario-prototipo", relogio);
         repositorio.Adicionar(solicitacao);
 
         return Task.FromResult<Result<Guid>>(solicitacao.Id.Value);

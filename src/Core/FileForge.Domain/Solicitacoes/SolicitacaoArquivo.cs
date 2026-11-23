@@ -22,17 +22,24 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
 {
     private SolicitacaoArquivo() { }
 
-    private SolicitacaoArquivo(SolicitacaoArquivoId id, ClienteId clienteId, DataReferencia dataReferencia, DateTime criadaEmUtc)
+    private SolicitacaoArquivo(SolicitacaoArquivoId id, ClienteId clienteId, DataReferencia dataReferencia, string solicitadoPor, DateTime criadaEmUtc)
         : base(id)
     {
         ClienteId = clienteId;
         DataReferencia = dataReferencia;
+        SolicitadoPor = solicitadoPor;
         Status = StatusSolicitacao.Pendente;
         CriadaEmUtc = criadaEmUtc;
     }
 
     public ClienteId ClienteId { get; private set; }
     public DataReferencia DataReferencia { get; private set; } = null!;
+
+    /// <summary>
+    /// Quem pediu (claim <c>sub</c> do token, já autorizado na criação). O Worker não recebe o JWT do usuário:
+    /// a autoria viaja com a solicitação e com o evento.
+    /// </summary>
+    public string SolicitadoPor { get; private set; } = string.Empty;
     public StatusSolicitacao Status { get; private set; }
     public DateTime CriadaEmUtc { get; private set; }
     public DateTime? AtualizadaEmUtc { get; private set; }
@@ -43,14 +50,15 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
     /// <summary>Ativa = ainda não concluída nem falhada; base da idempotência por cliente/data.</summary>
     public bool Ativa => Status is StatusSolicitacao.Pendente or StatusSolicitacao.Processando;
 
-    public static SolicitacaoArquivo Criar(ClienteId clienteId, DataReferencia dataReferencia, IDateTimeProvider relogio)
+    public static SolicitacaoArquivo Criar(ClienteId clienteId, DataReferencia dataReferencia, string solicitadoPor, IDateTimeProvider relogio)
     {
         ArgumentNullException.ThrowIfNull(dataReferencia);
+        ArgumentException.ThrowIfNullOrWhiteSpace(solicitadoPor);
         ArgumentNullException.ThrowIfNull(relogio);
 
         var agora = relogio.UtcNow;
-        var solicitacao = new SolicitacaoArquivo(SolicitacaoArquivoId.Novo(), clienteId, dataReferencia, agora);
-        solicitacao.RaiseDomainEvent(new SolicitacaoArquivoCriada(solicitacao.Id, clienteId, dataReferencia.Valor, agora));
+        var solicitacao = new SolicitacaoArquivo(SolicitacaoArquivoId.Novo(), clienteId, dataReferencia, solicitadoPor, agora);
+        solicitacao.RaiseDomainEvent(new SolicitacaoArquivoCriada(solicitacao.Id, clienteId, dataReferencia.Valor, solicitadoPor, agora));
         return solicitacao;
     }
 

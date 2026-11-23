@@ -60,6 +60,9 @@ internal sealed class SolicitacaoBuilder
     private DateOnly _data = new(2025, 1, 10);
     private RelogioFake _relogio = new();
     private StatusSolicitacao _status = StatusSolicitacao.Pendente;
+    private string _solicitadoPor = "usuario-teste";
+
+    public SolicitacaoBuilder SolicitadaPor(string usuario) { _solicitadoPor = usuario; return this; }
 
     public SolicitacaoBuilder DoCliente(ClienteId clienteId) { _clienteId = clienteId; return this; }
     public SolicitacaoBuilder ParaData(DateOnly data) { _data = data; return this; }
@@ -72,7 +75,7 @@ internal sealed class SolicitacaoBuilder
     /// <summary>Leva a solicitação ao status desejado passando pelas transições reais (não "força" o estado).</summary>
     public SolicitacaoArquivo Build()
     {
-        var s = SolicitacaoArquivo.Criar(_clienteId, DataReferencia.Criar(_data, _relogio).Value, _relogio);
+        var s = SolicitacaoArquivo.Criar(_clienteId, DataReferencia.Criar(_data, _relogio).Value, _solicitadoPor, _relogio);
 
         if (_status is StatusSolicitacao.Pendente)
             return s;

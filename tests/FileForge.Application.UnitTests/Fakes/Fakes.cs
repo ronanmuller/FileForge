@@ -1,0 +1,65 @@
+using FileForge.Application.Abstractions.Seguranca;
+using FileForge.Domain.Solicitacoes;
+using FileForge.Domain.ValueObjects;
+using FileForge.SharedKernel.Abstractions;
+
+namespace FileForge.Application.UnitTests.Fakes;
+
+/// <summary>Usuário controlável. Use os atalhos <see cref="Ana"/>, <see cref="Bruno"/>, <see cref="Operador"/>, <see cref="Anonimo"/>.</summary>
+internal sealed class UsuarioFake : IUsuarioAtual
+{
+    public static readonly ClienteId ClienteDaAna = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
+    public static readonly ClienteId ClienteDoBruno = new(Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002"));
+
+    private readonly HashSet<string> _permissoes;
+
+    public UsuarioFake(string id, ClienteId? clienteId, bool autenticado = true, params string[] permissoes)
+    {
+        Id = id;
+        ClienteId = clienteId;
+        Autenticado = autenticado;
+        _permissoes = [.. permissoes];
+    }
+
+    public bool Autenticado { get; }
+    public string Id { get; }
+    public ClienteId? ClienteId { get; }
+    public bool PossuiPermissao(string permissao) => _permissoes.Contains(permissao);
+
+    public static UsuarioFake Ana() => new("ana", ClienteDaAna, true, Permissoes.SolicitarExtrato, Permissoes.ConsultarExtrato);
+    public static UsuarioFake Bruno() => new("bruno", ClienteDoBruno, true, Permissoes.SolicitarExtrato, Permissoes.ConsultarExtrato);
+    public static UsuarioFake Operador() => new("operador", null, true,
+        Permissoes.ConsultarExtrato, Permissoes.ConsultarTodos, Permissoes.Reprocessar);
+    public static UsuarioFake Anonimo() => new("", null, autenticado: false);
+}
+
+internal sealed class RelogioFixo : IDateTimeProvider
+{
+    public DateTime UtcNow { get; set; } = new(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+    public DateOnly Hoje => DateOnly.FromDateTime(UtcNow);
+}
+
+/// <summary>Repositório em memória que usa a MESMA specification que o EF usará (garante que a regra é única).</summary>
+internal sealed class SolicitacaoRepositorioFake : ISolicitacaoArquivoRepository
+{
+    public List<SolicitacaoArquivo> Itens { get; } = [];
+
+    public Task<SolicitacaoArquivo?> ObterPorIdAsync(SolicitacaoArquivoId id, CancellationToken cancellationToken) =>
+        Task.FromResult(Itens.FirstOrDefault(s => s.Id == id));
+
+    public Task<bool> ExisteAtivaAsync(ClienteId clienteId, DataReferencia data, CancellationToken cancellationToken) =>
+        Task.FromResult(Itens.AsQueryable().Any(SolicitacaoArquivoSpecs.AtivaDoClienteNaData(clienteId, data)));
+
+    public void Adicionar(SolicitacaoArquivo solicitacao) => Itens.Add(solicitacao);
+}
+
+internal sealed class UnitOfWorkFake : IUnitOfWork
+{
+    public int Commits { get; private set; }
+
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        Commits++;
+        return Task.FromResult(1);
+    }
+}

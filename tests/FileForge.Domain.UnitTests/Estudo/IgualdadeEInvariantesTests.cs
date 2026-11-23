@@ -74,7 +74,7 @@ public class IgualdadeEInvariantesTests
     public void Aggregate_FalhaDeNegocio_NaoAlteraEstado()
     {
         var relogio = new RelogioFake();
-        var s = SolicitacaoArquivo.Criar(ClienteId.Novo(), DataReferencia.Criar(new DateOnly(2025, 1, 1), relogio).Value, relogio);
+        var s = SolicitacaoArquivo.Criar(ClienteId.Novo(), DataReferencia.Criar(new DateOnly(2025, 1, 1), relogio).Value, "ana", relogio);
         var eventosAntes = s.DomainEvents.Count;
 
         var result = s.Concluir("a.txt", relogio); // pulando o Processando
@@ -104,7 +104,7 @@ public class IgualdadeEInvariantesTests
     public void DomainEvents_SaoAcumuladosEDepoisLimpos()
     {
         var relogio = new RelogioFake();
-        var s = SolicitacaoArquivo.Criar(ClienteId.Novo(), DataReferencia.Criar(new DateOnly(2025, 1, 1), relogio).Value, relogio);
+        var s = SolicitacaoArquivo.Criar(ClienteId.Novo(), DataReferencia.Criar(new DateOnly(2025, 1, 1), relogio).Value, "ana", relogio);
         s.IniciarProcessamento(relogio);
         s.Concluir("a.txt", relogio);
 
