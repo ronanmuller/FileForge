@@ -6,8 +6,11 @@ public interface IDomainEvent
     DateTime OccurredOnUtc { get; }
 }
 
-public abstract record DomainEvent : IDomainEvent
+/// <summary>
+/// O instante é recebido de quem cria o evento (que usa <c>IDateTimeProvider</c>),
+/// em vez de ler <c>DateTime.UtcNow</c> aqui — mantém os testes determinísticos.
+/// </summary>
+public abstract record DomainEvent(DateTime OccurredOnUtc) : IDomainEvent
 {
     public Guid EventId { get; init; } = Guid.NewGuid();
-    public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;
 }

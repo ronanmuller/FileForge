@@ -100,4 +100,27 @@ public class SolicitacaoArquivoTests
 
         Assert.Equal(DomainErrors.SolicitacaoArquivo.MotivoFalhaObrigatorio, s.Falhar(null, _relogio).Error);
     }
+
+    [Fact]
+    public void Eventos_UsamOHorarioDoRelogioInjetado()
+    {
+        var s = NovaSolicitacao();
+        _relogio.UtcNow = _relogio.UtcNow.AddMinutes(5);
+        s.IniciarProcessamento(_relogio);
+
+        Assert.Equal(new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc), s.DomainEvents.First().OccurredOnUtc);
+        Assert.Equal(new DateTime(2025, 1, 15, 12, 5, 0, DateTimeKind.Utc), s.DomainEvents.Last().OccurredOnUtc);
+    }
+
+    [Fact]
+    public void IniciarProcessamento_RelogioNulo_LancaSemAlterarEstado()
+    {
+        var s = NovaSolicitacao();
+
+        Assert.Throws<ArgumentNullException>(() => s.IniciarProcessamento(null!));
+
+        Assert.Equal(StatusSolicitacao.Pendente, s.Status);
+        Assert.Equal(0, s.Tentativas);
+        Assert.Single(s.DomainEvents);
+    }
 }

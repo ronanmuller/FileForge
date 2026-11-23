@@ -48,25 +48,30 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
         ArgumentNullException.ThrowIfNull(dataReferencia);
         ArgumentNullException.ThrowIfNull(relogio);
 
-        var solicitacao = new SolicitacaoArquivo(SolicitacaoArquivoId.Novo(), clienteId, dataReferencia, relogio.UtcNow);
-        solicitacao.RaiseDomainEvent(new SolicitacaoArquivoCriada(solicitacao.Id, clienteId, dataReferencia.Valor));
+        var agora = relogio.UtcNow;
+        var solicitacao = new SolicitacaoArquivo(SolicitacaoArquivoId.Novo(), clienteId, dataReferencia, agora);
+        solicitacao.RaiseDomainEvent(new SolicitacaoArquivoCriada(solicitacao.Id, clienteId, dataReferencia.Valor, agora));
         return solicitacao;
     }
 
     public Result IniciarProcessamento(IDateTimeProvider relogio)
     {
+        ArgumentNullException.ThrowIfNull(relogio);
+
         if (Status != StatusSolicitacao.Pendente)
             return DomainErrors.SolicitacaoArquivo.TransicaoInvalida;
 
         Status = StatusSolicitacao.Processando;
         Tentativas++;
-        Tocar(relogio);
-        RaiseDomainEvent(new ProcessamentoIniciado(Id));
+        AtualizadaEmUtc = relogio.UtcNow;
+        RaiseDomainEvent(new ProcessamentoIniciado(Id, Tentativas, AtualizadaEmUtc.Value));
         return Result.Success();
     }
 
     public Result Concluir(string? nomeArquivo, IDateTimeProvider relogio)
     {
+        ArgumentNullException.ThrowIfNull(relogio);
+
         if (Status != StatusSolicitacao.Processando)
             return DomainErrors.SolicitacaoArquivo.TransicaoInvalida;
 
@@ -76,13 +81,15 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
         Status = StatusSolicitacao.Concluida;
         NomeArquivo = nomeArquivo.Trim();
         MotivoFalha = null;
-        Tocar(relogio);
-        RaiseDomainEvent(new ArquivoGerado(Id, NomeArquivo));
+        AtualizadaEmUtc = relogio.UtcNow;
+        RaiseDomainEvent(new ArquivoGerado(Id, NomeArquivo, AtualizadaEmUtc.Value));
         return Result.Success();
     }
 
     public Result Falhar(string? motivo, IDateTimeProvider relogio)
     {
+        ArgumentNullException.ThrowIfNull(relogio);
+
         if (Status != StatusSolicitacao.Processando)
             return DomainErrors.SolicitacaoArquivo.TransicaoInvalida;
 
@@ -91,24 +98,20 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
 
         Status = StatusSolicitacao.Falhou;
         MotivoFalha = motivo.Trim();
-        Tocar(relogio);
-        RaiseDomainEvent(new ProcessamentoFalhou(Id, MotivoFalha, Tentativas));
+        AtualizadaEmUtc = relogio.UtcNow;
+        RaiseDomainEvent(new ProcessamentoFalhou(Id, MotivoFalha, Tentativas, AtualizadaEmUtc.Value));
         return Result.Success();
     }
 
     public Result Reprocessar(IDateTimeProvider relogio)
     {
+        ArgumentNullException.ThrowIfNull(relogio);
+
         if (Status != StatusSolicitacao.Falhou)
             return DomainErrors.SolicitacaoArquivo.TransicaoInvalida;
 
         Status = StatusSolicitacao.Pendente;
-        Tocar(relogio);
-        return Result.Success();
-    }
-
-    private void Tocar(IDateTimeProvider relogio)
-    {
-        ArgumentNullException.ThrowIfNull(relogio);
         AtualizadaEmUtc = relogio.UtcNow;
+        return Result.Success();
     }
 }
