@@ -489,5 +489,10 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 18 | Review | `Publish` não agrega cancelamento; 1 falha = exceção original | cancelamento ficava escondido em `AggregateException` | `catch` específico para `OperationCanceledException` |
 | 19 | Review | Dois handlers para o mesmo request = erro na inicialização | `TryAdd` descartava o segundo sem avisar | falha rápida (*fail fast*) na configuração do DI |
 | 20 | Review | Todos os arquivos em UTF-8 | acentos quebrados em 2 arquivos | `.editorconfig` com `charset = utf-8` |
+| 21 | Qualidade | `Directory.Build.props` com `TreatWarningsAsErrors` + `AnalysisLevel=latest-recommended` | qualidade garantida pelo compilador, não pela memória | o analisador já achou `ToString` dependente de cultura em `Dinheiro`/`DataReferencia` |
+| 22 | Qualidade | Central Package Management (`Directory.Packages.props`) | versões repetidas em cada `.csproj` | uma versão por pacote na solução; `.csproj` só com referências |
+| 23 | Qualidade | `global.json` + `nuget.config` com fonte única | build igual em qualquer máquina e no CI | fontes NuGet da máquina não interferem |
+| 24 | Qualidade | Supressões de analisador documentadas no `.editorconfig` | CA1716/CA1711 não se aplicam (C#-only, convenção do Mediator) | toda exceção à regra tem justificativa escrita |
+| 25 | CI | GitHub Actions: format → build Release → test + cobertura | feedback automático a cada push/PR | badge no README; cobertura no resumo do workflow |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->

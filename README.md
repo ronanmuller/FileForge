@@ -1,5 +1,8 @@
 # FileForge
 
+[![CI](https://github.com/ronanmuller/FileForge/actions/workflows/ci.yml/badge.svg)](https://github.com/ronanmuller/FileForge/actions/workflows/ci.yml)
+![.NET 9](https://img.shields.io/badge/.NET-9-512BD4)
+
 > Projeto de **estudos** em .NET 9. Não é um projeto de empresa e não tem levantamento formal de requisitos: o objetivo é aplicar, **por etapas e entendendo cada decisão**, as melhores práticas de arquitetura, design patterns e ferramentas de mercado.
 
 ---
