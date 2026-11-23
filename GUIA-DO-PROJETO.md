@@ -625,6 +625,7 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 36 | 8 | `ValidationBehavior` (FluentValidation) + `ValidationError` com lista | vários erros de entrada numa resposta só | formato na Application; regra de negócio no Domain |
 | 37 | 8 | `IEventBus` na Application, chamado só pelo publicador do Outbox | evitar dupla escrita | handlers nunca publicam direto |
 | 38 | Segurança | Defesa em camadas: identidade, dados e borda | uma camada só (JWT) não protege dados nem endpoints | rate limiting e mascaramento de documento entram na etapa 10 |
+| 39 | Segurança | API só valida JWT (`iss`, `aud`, `exp`, `nbf`, assinatura RS256, clock skew 30 s); Keycloak emite | separar emissor de consumidor; padrão OIDC permite trocar de provedor | audience mapper no realm; testes geram tokens próprios |
 
 ---
 
@@ -681,5 +682,62 @@ Scope e role se **somam**: o acesso só é liberado se o app tem o scope **e** o
 | Segredos fora do código | Dados | ⏳ 10.2 | user-secrets / Aspire |
 | Mascarar CPF/CNPJ | Dados | ⏳ 10.3 | método no `Documento` + teste |
 | Criptografia em repouso | Dados | ⏳ 9 / 12 | PostgreSQL e bucket |
+
+### 12.4 O que a API verifica no JWT
+
+O Keycloak **emite** o token; a API só **confere** e **usa**. São duas verificações em sequência:
+
+1. **Autenticação** (o token é legítimo?) → feita pelo `AddJwtBearer` → falha = **401**.
+2. **Autorização** (o que este usuário pode fazer?) → nossas regras sobre as claims → falha = **403** ou **404**.
+
+#### Exemplo de token (payload decodificado)
+
+```json
+{
+  "iss": "http://localhost:8080/realms/fileforge",
+  "aud": "fileforge-api",
+  "sub": "8f3c1a2e-...-ana",
+  "azp": "fileforge-scalar",
+  "exp": 1767312000,
+  "nbf": 1767311700,
+  "scope": "openid extratos.read extratos.write",
+  "permissions": ["extratos:solicitar", "extratos:consultar"],
+  "cliente_id": "a1b2c3d4-..."
+}
+```
+
+#### 1. Autenticação (401)
+
+| Item | O que confere | Por quê |
+|---|---|---|
+| Assinatura | Chave pública do Keycloak, localizada pelo `kid` | Ninguém altera o token sem invalidar a assinatura |
+| Algoritmo (`alg`) | Só `RS256` | Bloqueia `alg: none` e troca por algoritmo fraco |
+| Emissor (`iss`) | É o nosso realm | Rejeita tokens de outro servidor/realm |
+| Audiência (`aud`) | Emitido para `fileforge-api` | Token de outro sistema não serve aqui |
+| Expiração (`exp`) | Não venceu | Limita o uso de token vazado |
+| Início (`nbf`) | Já pode ser usado | Rejeita tokens "do futuro" |
+| Tolerância de relógio | 30 s (padrão é 5 min) | Pequena diferença de horário sem abrir janela grande |
+
+> O Keycloak põe `aud: "account"` por padrão: é preciso um **audience mapper** no realm para incluir `fileforge-api`.
+
+#### 2. Autorização (403/404)
+
+| Claim | Uso | Falha | Onde |
+|---|---|---|---|
+| `scope` | O **aplicativo** pode fazer isso em nome do usuário? | 403 | Política da API (10.2) |
+| `permissions` / roles | O **usuário** pode fazer isso? | 403 | `[RequerPermissao]` + `AuthorizationBehavior` |
+| `cliente_id` | **De quem** são os dados | 404 (anti-IDOR) | `ObterSolicitacaoHandler`, `CriarSolicitacaoCommand` |
+| `sub` | **Quem** fez a ação | — | `SolicitadoPor` e logs |
+| `azp` | Qual aplicativo pediu o token | — | Auditoria (usuário × Worker) |
+
+Scope **e** permissão se somam: os dois precisam estar presentes.
+
+#### 3. O que o JWT não resolve sozinho
+
+| Limitação | Tratamento |
+|---|---|
+| Não dá para revogar antes do `exp` | Vida curta (5 min) + refresh token |
+| É assinado, **não criptografado** (qualquer um lê) | Nada sensível no token; só HTTPS; nunca logar o token |
+| Permissão pode estar desatualizada | Vida curta; ações críticas consultam o estado atual |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->
