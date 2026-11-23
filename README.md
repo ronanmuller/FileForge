@@ -205,6 +205,8 @@ tests/
 - [ ] Etapa 9 — Infrastructure: EF Core + PostgreSQL + repositórios + Outbox
 - [ ] Etapa 10 — .NET Aspire AppHost (Postgres, RabbitMQ, Keycloak) + API (idempotência, ProblemDetails, Scalar)
   - [ ] 10.1 JWT com Keycloak: realm importado, policies por permissão, autorização por recurso (IDOR)
+  - [ ] 10.2 Segurança da borda: scopes × roles, HTTPS, CORS restrito, cabeçalhos de segurança, **rate limiting**, segredos fora do código
+  - [ ] 10.3 Proteção de dados: **mascaramento de CPF/CNPJ** em logs e respostas (LGPD)
 - [ ] Etapa 11 — Worker + RabbitMQ: consumidor idempotente, retry, dead-letter, simulação de falhas, comandos no dashboard
 - [ ] Etapa 12 — Geração do arquivo sequencial + Bucket (MinIO/Azurite) + Polly
 - [ ] Etapa 13 — Redis

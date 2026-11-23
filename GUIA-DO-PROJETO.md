@@ -17,6 +17,7 @@
 9. [Detalhes de código que parecem estranhos](#9-detalhes-de-código-que-parecem-estranhos)
 10. [Testes: como rodar e debugar para estudar](#10-testes-como-rodar-e-debugar-para-estudar)
 11. [Histórico de decisões](#11-histórico-de-decisões-adr-resumido)
+12. [Segurança: as três camadas](#12-segurança-as-três-camadas)
 
 ---
 
@@ -623,5 +624,62 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 35 | 8 | Autorização por recurso no handler, respondendo 404 | anti-IDOR sem revelar a existência do recurso | `consultar-todos` para operador/admin |
 | 36 | 8 | `ValidationBehavior` (FluentValidation) + `ValidationError` com lista | vários erros de entrada numa resposta só | formato na Application; regra de negócio no Domain |
 | 37 | 8 | `IEventBus` na Application, chamado só pelo publicador do Outbox | evitar dupla escrita | handlers nunca publicam direto |
+| 38 | Segurança | Defesa em camadas: identidade, dados e borda | uma camada só (JWT) não protege dados nem endpoints | rate limiting e mascaramento de documento entram na etapa 10 |
+
+---
+
+## 12. Segurança: as três camadas
+
+> Pergunta comum em entrevista: *"Descreva três medidas para proteger endpoints e dados corporativos."*
+> Erro comum: responder três itens da **mesma** camada (token, permissões, scope). A resposta esperada cobre **camadas diferentes**.
+
+### 12.1 Conceitos que costumam ser confundidos
+
+| Termo | O que é | Exemplo |
+|---|---|---|
+| **JWT** | O token em si: cabeçalho + claims + assinatura | `eyJhbGciOi...` |
+| **Validar o token** | Conferir assinatura, emissor (`iss`), audiência (`aud`) e expiração (`exp`) | `AddJwtBearer` faz isso |
+| **Scope** | O que um **aplicativo cliente** pode fazer **em nome do usuário** (delegação OAuth) | o app mobile só pede `extratos.read` |
+| **Role / permissão** | O que o **usuário** pode fazer | `operador` tem `extratos:reprocessar` |
+| **Autorização por recurso** | Pode fazer isso **com este dado específico**? | a Ana só vê as solicitações dela |
+| **IDOR** | Falha em que trocar um id na URL expõe dados de outra pessoa | `GET /solicitacoes/{id-do-bruno}` |
+
+Scope e role se **somam**: o acesso só é liberado se o app tem o scope **e** o usuário tem a permissão.
+
+### 12.2 As três camadas
+
+**1. Identidade (autenticação e autorização)**
+- Validar o JWT; tokens de vida curta.
+- Scopes, roles e permissões com **menor privilégio**.
+- Autorização por recurso (anti-IDOR).
+
+**2. Dados**
+- HTTPS/TLS em trânsito; criptografia em repouso (banco e bucket).
+- Segredos fora do código (user-secrets em dev; Key Vault/variáveis de ambiente em produção).
+- Minimizar exposição: mascarar CPF/CNPJ em logs e respostas (LGPD); nunca logar tokens.
+
+**3. Borda (endpoints)**
+- Validação de toda entrada.
+- Rate limiting contra abuso e força bruta.
+- CORS restrito e cabeçalhos de segurança.
+- Erros padronizados (ProblemDetails) sem stack trace.
+- Auditoria: logar acessos negados e alertar quando aumentarem.
+
+### 12.3 Status no FileForge
+
+| Medida | Camada | Status | Onde |
+|---|---|---|---|
+| Permissões declaradas no command | Identidade | ✅ | `[RequerPermissao]` + `AuthorizationBehavior` |
+| Autorização por recurso (responde 404) | Identidade | ✅ | `ObterSolicitacaoHandler` |
+| `ClienteId` vem do token, não do corpo | Identidade | ✅ | `CriarSolicitacaoCommand` + `IUsuarioAtual` |
+| Validação de entrada | Borda | ✅ | `ValidationBehavior` |
+| Log de acesso negado | Borda | ✅ | `LogDefinitions` |
+| Validar JWT (`iss`, `aud`, `exp`, assinatura) | Identidade | ⏳ 10.1 | `AddJwtBearer` + Keycloak |
+| Scopes × roles; *client credentials* do Worker | Identidade | ⏳ 10.2 | políticas do ASP.NET Core |
+| HTTPS, CORS, cabeçalhos, ProblemDetails | Borda | ⏳ 10.2 | API |
+| Rate limiting | Borda | ⏳ 10.2 | `AddRateLimiter` |
+| Segredos fora do código | Dados | ⏳ 10.2 | user-secrets / Aspire |
+| Mascarar CPF/CNPJ | Dados | ⏳ 10.3 | método no `Documento` + teste |
+| Criptografia em repouso | Dados | ⏳ 9 / 12 | PostgreSQL e bucket |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->
