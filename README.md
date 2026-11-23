@@ -201,17 +201,17 @@ tests/
   - [x] 6.3 Aggregate `Transacao`
   - [x] 6.4 Aggregate `SolicitacaoArquivo` (status + eventos)
 - [ ] Etapa 7 — Interfaces de repositório + Unit of Work
-- [ ] Etapa 8 — Application: command + query + behaviors (+ `ValidationError`)
-- [ ] Etapa 9 — Infrastructure: EF Core + repositórios + Outbox
-- [ ] Etapa 10 — API com idempotência + ProblemDetails
-- [ ] Etapa 11 — Worker + geração do arquivo sequencial
-- [ ] Etapa 12 — Bucket (MinIO/Azurite) + Polly
+- [ ] Etapa 8 — Application: commands/queries, `ValidationError`, `IUsuarioAtual` + `AuthorizationBehavior`, `IEventBus`
+- [ ] Etapa 9 — Infrastructure: EF Core + PostgreSQL + repositórios + Outbox
+- [ ] Etapa 10 — .NET Aspire AppHost (Postgres, RabbitMQ, Keycloak) + API (idempotência, ProblemDetails, Scalar)
+  - [ ] 10.1 JWT com Keycloak: realm importado, policies por permissão, autorização por recurso (IDOR)
+- [ ] Etapa 11 — Worker + RabbitMQ: consumidor idempotente, retry, dead-letter, simulação de falhas, comandos no dashboard
+- [ ] Etapa 12 — Geração do arquivo sequencial + Bucket (MinIO/Azurite) + Polly
 - [ ] Etapa 13 — Redis
 - [ ] Etapa 14 — MongoDB
-- [ ] Etapa 15 — OpenTelemetry + Health Checks
-- [ ] Etapa 16 — Docker Compose / .NET Aspire
-- [ ] Etapa 17 — Testcontainers (testes de arquitetura ✅ antecipados)
-- [ ] Etapa 18 — CI (GitHub Actions)
+- [ ] Etapa 15 — OpenTelemetry completo + Health Checks
+- [ ] Etapa 16 — Testcontainers (testes de arquitetura ✅ antecipados)
+- [x] Etapa 17 — CI (GitHub Actions) ✅ antecipado
 
 ---
 

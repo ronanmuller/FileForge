@@ -1,0 +1,20 @@
+using System.Linq.Expressions;
+using FileForge.Domain.ValueObjects;
+
+namespace FileForge.Domain.Solicitacoes;
+
+/// <summary>
+/// Regras de consulta como <see cref="Expression"/>: a mesma regra serve para filtrar em memória
+/// (<c>Compile()</c>) e para virar SQL no EF Core. Evita que <see cref="SolicitacaoArquivo.Ativa"/>
+/// (propriedade calculada, que o EF não traduz) seja reescrita de outro jeito na Infrastructure.
+/// </summary>
+public static class SolicitacaoArquivoSpecs
+{
+    public static Expression<Func<SolicitacaoArquivo, bool>> Ativa =>
+        s => s.Status == StatusSolicitacao.Pendente || s.Status == StatusSolicitacao.Processando;
+
+    public static Expression<Func<SolicitacaoArquivo, bool>> AtivaDoClienteNaData(ClienteId clienteId, DataReferencia data) =>
+        s => s.ClienteId == clienteId
+             && s.DataReferencia == data
+             && (s.Status == StatusSolicitacao.Pendente || s.Status == StatusSolicitacao.Processando);
+}
