@@ -5,16 +5,45 @@ public enum ErrorType
     Failure,
     Validation,
     NotFound,
-    Conflict
+    Conflict,
+    Unauthorized,
+    Forbidden
 }
 
-public sealed record Error(string Code, string Message, ErrorType Type = ErrorType.Failure)
+/// <summary>Não é <c>sealed</c> para permitir <see cref="ValidationError"/> (vários erros em um só).</summary>
+public record Error(string Code, string Message, ErrorType Type = ErrorType.Failure)
 {
     public static readonly Error None = new(string.Empty, string.Empty);
 
     public static Error Validation(string code, string message) => new(code, message, ErrorType.Validation);
     public static Error NotFound(string code, string message) => new(code, message, ErrorType.NotFound);
     public static Error Conflict(string code, string message) => new(code, message, ErrorType.Conflict);
+    public static Error Unauthorized(string code, string message) => new(code, message, ErrorType.Unauthorized);
+    public static Error Forbidden(string code, string message) => new(code, message, ErrorType.Forbidden);
+}
+
+/// <summary>
+/// Agrupa várias falhas de validação (ex.: um formulário com 3 campos inválidos) num único <see cref="Error"/>,
+/// para que o <see cref="Result"/> continue com um só erro e a API devolva todos de uma vez (400 + lista).
+/// </summary>
+public sealed record ValidationError : Error
+{
+    public ValidationError(IReadOnlyList<Error> errors)
+        : base("Validation.Failed", "Um ou mais erros de validação ocorreram.", ErrorType.Validation)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        if (errors.Count == 0)
+            throw new ArgumentException("Informe pelo menos um erro.", nameof(errors));
+
+        Errors = errors;
+    }
+
+    public IReadOnlyList<Error> Errors { get; }
+
+    // Record compara listas por referência; aqui queremos comparar o conteúdo.
+    public bool Equals(ValidationError? other) => base.Equals(other) && Errors.SequenceEqual(other!.Errors);
+
+    public override int GetHashCode() => Errors.Aggregate(base.GetHashCode(), HashCode.Combine);
 }
 
 public class Result
