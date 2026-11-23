@@ -105,7 +105,7 @@ public interface ITransacaoRepository
 }
 ```
 
-> Contratos iniciais; serão refinados na etapa 7.
+> Contratos definidos na etapa 7. `ITransacaoRepository` recebe `ContaId`s (ver GUIA §8.10).
 
 ---
 
@@ -133,7 +133,7 @@ Complementos:
 - **Catálogo de erros por aggregate**: `SolicitacaoArquivoErrors.JaExisteAtiva` (códigos consistentes e testáveis).
 - **Logar uma única vez**, na borda (API/Worker).
 - `throw;` e nunca `throw ex;`.
-- **Pendente**: o `Result` guarda um único `Error`; a validação precisará de vários (`ValidationError` com lista). Resolver na etapa 8.
+- **Resolvido na etapa 8**: `ValidationError` agrupa vários erros de validação num único `Error`.
 
 ---
 
@@ -173,7 +173,7 @@ src/
     FileForge.Mediator          ✅ IMediator (ISender/IPublisher), IRequest, INotification, IPipelineBehavior, DI
   Core/
     FileForge.Domain            🚧 referencia SharedKernel (NÃO referencia Mediator)
-    FileForge.Application       🚧 LogDefinitions, LoggingBehavior, AddApplication()
+    FileForge.Application       ✅ casos de uso (Criar/Obter/Reprocessar), behaviors (Logging, Autorização, Validação), IUsuarioAtual, IEventBus
   FileForge.Infrastructure      ⏳
   FileForge.Api                 ⏳
   FileForge.Worker              ⏳
@@ -200,8 +200,8 @@ tests/
   - [x] 6.2 Aggregate `Cliente` + `Conta`
   - [x] 6.3 Aggregate `Transacao`
   - [x] 6.4 Aggregate `SolicitacaoArquivo` (status + eventos)
-- [ ] Etapa 7 — Interfaces de repositório + Unit of Work
-- [ ] Etapa 8 — Application: commands/queries, `ValidationError`, `IUsuarioAtual` + `AuthorizationBehavior`, `IEventBus`
+- [x] Etapa 7 — Interfaces de repositório + Unit of Work
+- [x] Etapa 8 — Application: commands/queries, `ValidationError`, `IUsuarioAtual` + `AuthorizationBehavior`, `IEventBus`
 - [ ] Etapa 9 — Infrastructure: EF Core + PostgreSQL + repositórios + Outbox
 - [ ] Etapa 10 — .NET Aspire AppHost (Postgres, RabbitMQ, Keycloak) + API (idempotência, ProblemDetails, Scalar)
   - [ ] 10.1 JWT com Keycloak: realm importado, policies por permissão, autorização por recurso (IDOR)

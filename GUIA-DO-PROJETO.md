@@ -470,6 +470,49 @@ flowchart LR
 
 **Garantia:** *at-least-once* (pelo menos uma vez). Uma mensagem pode chegar **duplicada**, por isso o consumidor precisa ser idempotente — e o `EventId` e a `SolicitacaoArquivo` com status já foram desenhados para isso.
 
+### 8.10 Repositórios: onde ficam as interfaces e as implementações
+
+```plaintext
+FileForge.Domain/
+  Clientes/       Cliente.cs, Conta.cs, IClienteRepository.cs
+  Transacoes/     Transacao.cs, ITransacaoRepository.cs
+  Solicitacoes/   SolicitacaoArquivo.cs, SolicitacaoArquivoSpecs.cs, ISolicitacaoArquivoRepository.cs
+FileForge.Infrastructure/      ← etapa 9
+  Persistence/Repositories/     implementações com EF Core
+```
+
+- **Interface no Domain, implementação na Infrastructure.** Quem *usa* define o contrato (Inversão de Dependência). Se a interface ficasse junto do EF Core, o Domain dependeria do banco.
+- **Pasta por aggregate**, não uma pasta `Repositories/`: tudo de `SolicitacaoArquivo` fica junto.
+- **Um repositório por aggregate root.** Não existe `IContaRepository`: `Conta` só é acessada via `Cliente`.
+- **Sem projeto `FileForge.Repository` separado:** repositórios, Unit of Work e Outbox compartilham o mesmo `DbContext` e a mesma transação; ficam juntos em `FileForge.Infrastructure`.
+- **Repositório não conhece outro aggregate.** `ITransacaoRepository.ListarPorContasEDataAsync` recebe `ContaId`s, e não `ClienteId`: a `Transacao` só conhece a conta. O handler carrega o `Cliente`, pega os Ids das contas e repassa. Evolução futura: uma consulta de leitura dedicada (`IExtratoQuery`, estilo CQRS) para gerar o arquivo.
+
+### 8.11 Autorização: três níveis
+
+| Nível | Pergunta | Onde | Resposta |
+|---|---|---|---|
+| Autenticação | O token é válido? | API (`AddJwtBearer`, etapa 10) | 401 |
+| Permissão | Pode **fazer** isso? | `[RequerPermissao]` + `AuthorizationBehavior` | 403 |
+| Recurso | Pode fazer isso **com este dado**? | No handler (ex.: `ObterSolicitacaoHandler`) | **404**, para não revelar que o id existe (anti-IDOR) |
+
+- A Application não conhece JWT: depende de `IUsuarioAtual` (`Id`, `ClienteId`, `PossuiPermissao`). A API implementa lendo as claims; os testes usam um fake.
+- `CriarSolicitacaoCommand` **não tem `ClienteId`**: ele vem do token. A Ana não consegue pedir o extrato do Bruno trocando um campo do JSON.
+- A solicitação grava **quem pediu** (`SolicitadoPor`). O Worker não recebe o token do usuário pela fila.
+- Permissões centralizadas em `Permissoes` (`extratos:solicitar`, `extratos:reprocessar`...): um nome errado quebraria a autorização.
+
+### 8.12 Pipeline completo e validação
+
+```mermaid
+flowchart LR
+    S["Send"] --> L["Logging"] --> A["Autorização"] --> V["Validação"] --> H["Handler"]
+```
+
+- **Autorização antes da validação:** quem não tem permissão não descobre quais campos são válidos.
+- **Validação (FluentValidation) = formato da entrada.** Regra de negócio continua no Domain. Ex.: "data informada" é validação; "data não está no futuro" é regra do `DataReferencia`.
+- **`ValidationError`** junta vários erros num só `Error`, então o `Result` continua com um erro e a API devolve 400 com todos os campos de uma vez.
+- **`ResultFactory`:** o behavior só conhece `TResponse` genérico; a fábrica cria `Result` ou `Result<T>` de falha. Reflection uma vez por tipo, depois delegate em cache (mesma técnica do Mediator).
+- Novos `ErrorType`: `Unauthorized` (401) e `Forbidden` (403).
+
 ---
 
 ## 9. Detalhes de código que parecem estranhos
@@ -573,5 +616,12 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 28 | IoC | `AddX()` por camada, sem projeto `CrossCutting.IoC` | cada camada registra o que é dela; composition root fica na API/Worker | `AddApplication()` testado com `ValidateOnBuild` |
 | 29 | Testes | Testes de arquitetura com reflection + NetArchTest | as regras do guia deixam de depender de disciplina | teste de sanidade garante que os filtros não "passam no vazio" |
 | 30 | Testes | Test Data Builders (`Um.X()`) | testes declaram só o que importa; builders usam as transições reais | mudança no construtor de um aggregate afeta um lugar só |
+| 31 | 7 | Interfaces de repositório no Domain, por pasta de aggregate; implementação em `FileForge.Infrastructure` | Inversão de Dependência; Unit of Work e Outbox dividem o `DbContext` | sem projeto `Repository` isolado |
+| 32 | 7 | `ITransacaoRepository` recebe `ContaId`s, não `ClienteId` | `Transacao` só conhece a conta; evitar um repositório que conhece outro aggregate | handler carrega o `Cliente` e repassa as contas; `IExtratoQuery` como evolução |
+| 33 | 7 | Specifications (`SolicitacaoArquivoSpecs`) como `Expression` | a regra "ativa" precisa virar SQL no EF Core | mesma regra em memória e no banco |
+| 34 | 8 | `IUsuarioAtual` + `[RequerPermissao]` + `AuthorizationBehavior` | Application sem JWT/HttpContext; permissão declarada no próprio command | `ClienteId` vem do token, não do corpo |
+| 35 | 8 | Autorização por recurso no handler, respondendo 404 | anti-IDOR sem revelar a existência do recurso | `consultar-todos` para operador/admin |
+| 36 | 8 | `ValidationBehavior` (FluentValidation) + `ValidationError` com lista | vários erros de entrada numa resposta só | formato na Application; regra de negócio no Domain |
+| 37 | 8 | `IEventBus` na Application, chamado só pelo publicador do Outbox | evitar dupla escrita | handlers nunca publicam direto |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->
