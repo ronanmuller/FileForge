@@ -1,6 +1,6 @@
-using FileForge.Domain.Clientes;
-using FileForge.Domain.Solicitacoes;
-using FileForge.Domain.Transacoes;
+using FileForge.Domain.Events;
+using FileForge.Domain.Models;
+using FileForge.Domain.Specifications;
 using FileForge.Domain.ValueObjects;
 
 namespace FileForge.Domain.UnitTests.Builders;
@@ -28,7 +28,7 @@ internal sealed class ClienteBuilder
 
     public Cliente Build()
     {
-        var cliente = Clientes.Cliente.Criar(_nome, Documento.Criar(_documento).Value).Value;
+        var cliente = Models.Cliente.Criar(_nome, Documento.Criar(_documento).Value).Value;
         foreach (var (agencia, numero) in _contas)
             _ = cliente.AdicionarConta(agencia, numero).Value;
         return cliente;
@@ -51,7 +51,7 @@ internal sealed class TransacaoBuilder
     public TransacaoBuilder ComDescricao(string descricao) { _descricao = descricao; return this; }
 
     public Transacao Build() =>
-        Transacoes.Transacao.Registrar(_contaId, _data, Dinheiro.Criar(_valor).Value, _tipo, _descricao).Value;
+        Models.Transacao.Registrar(_contaId, _data, Dinheiro.Criar(_valor).Value, _tipo, _descricao).Value;
 }
 
 internal sealed class SolicitacaoBuilder

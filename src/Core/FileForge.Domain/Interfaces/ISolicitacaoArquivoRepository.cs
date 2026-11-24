@@ -1,6 +1,9 @@
+using FileForge.Domain.Events;
+using FileForge.Domain.Models;
+using FileForge.Domain.Specifications;
 using FileForge.Domain.ValueObjects;
 
-namespace FileForge.Domain.Solicitacoes;
+namespace FileForge.Domain.Interfaces;
 
 /// <summary>
 /// Repositório do aggregate <see cref="SolicitacaoArquivo"/>. Não confirma nada: quem faz commit é o

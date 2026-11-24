@@ -3,7 +3,7 @@ using FileForge.Domain.ValueObjects;
 using FileForge.SharedKernel.Domain;
 using FileForge.SharedKernel.Results;
 
-namespace FileForge.Domain.Clientes;
+namespace FileForge.Domain.Models;
 
 public sealed class Cliente : AggregateRoot<ClienteId>
 {

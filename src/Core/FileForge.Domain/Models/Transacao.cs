@@ -3,7 +3,7 @@ using FileForge.Domain.ValueObjects;
 using FileForge.SharedKernel.Domain;
 using FileForge.SharedKernel.Results;
 
-namespace FileForge.Domain.Transacoes;
+namespace FileForge.Domain.Models;
 
 /// <summary>Aggregate próprio: referencia a conta apenas por <see cref="ContaId"/>.</summary>
 public sealed class Transacao : AggregateRoot<TransacaoId>

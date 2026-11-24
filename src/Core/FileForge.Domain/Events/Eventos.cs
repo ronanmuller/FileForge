@@ -1,7 +1,7 @@
 using FileForge.Domain.ValueObjects;
 using FileForge.SharedKernel.Domain;
 
-namespace FileForge.Domain.Solicitacoes;
+namespace FileForge.Domain.Events;
 
 public sealed record SolicitacaoArquivoCriada(
     SolicitacaoArquivoId SolicitacaoId, ClienteId ClienteId, DateOnly DataReferencia, string SolicitadoPor, DateTime OccurredOnUtc)

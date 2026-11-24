@@ -3,7 +3,7 @@ using FileForge.Domain.ValueObjects;
 using FileForge.SharedKernel.Domain;
 using FileForge.SharedKernel.Results;
 
-namespace FileForge.Domain.Clientes;
+namespace FileForge.Domain.Models;
 
 /// <summary>Entidade filha de <see cref="Cliente"/>; só é criada/alterada através do aggregate root.</summary>
 public sealed class Conta : Entity<ContaId>

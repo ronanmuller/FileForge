@@ -1,6 +1,9 @@
+using FileForge.Domain.Events;
+using FileForge.Domain.Models;
+using FileForge.Domain.Specifications;
 using FileForge.Domain.ValueObjects;
 
-namespace FileForge.Domain.Transacoes;
+namespace FileForge.Domain.Interfaces;
 
 /// <summary>
 /// Repositório do aggregate <see cref="Transacao"/>. A leitura para o arquivo é em <b>streaming</b>

@@ -1,7 +1,8 @@
 using System.Linq.Expressions;
+using FileForge.Domain.Models;
 using FileForge.Domain.ValueObjects;
 
-namespace FileForge.Domain.Solicitacoes;
+namespace FileForge.Domain.Specifications;
 
 /// <summary>
 /// Regras de consulta como <see cref="Expression"/>: a mesma regra serve para filtrar em memória

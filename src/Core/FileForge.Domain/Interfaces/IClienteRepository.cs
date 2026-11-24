@@ -1,6 +1,9 @@
+using FileForge.Domain.Events;
+using FileForge.Domain.Models;
+using FileForge.Domain.Specifications;
 using FileForge.Domain.ValueObjects;
 
-namespace FileForge.Domain.Clientes;
+namespace FileForge.Domain.Interfaces;
 
 /// <summary>Repositório do aggregate <see cref="Cliente"/> (as <see cref="Conta"/>s vêm junto: são parte do aggregate).</summary>
 public interface IClienteRepository

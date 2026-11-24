@@ -1,6 +1,7 @@
 using FileForge.Application.Behaviors;
 using FileForge.Application.Solicitacoes.Criar;
 using FileForge.Application.UnitTests.Fakes;
+using FileForge.Domain.Interfaces;
 using FileForge.Mediator;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +30,7 @@ public class DependencyInjectionTests
             .AddLogging()
             .AddApplication()
             .AddSingleton<Abstractions.Seguranca.IUsuarioAtual>(UsuarioFake.Ana())
-            .AddSingleton<Domain.Solicitacoes.ISolicitacaoArquivoRepository>(new SolicitacaoRepositorioFake())
+            .AddSingleton<ISolicitacaoArquivoRepository>(new SolicitacaoRepositorioFake())
             .AddSingleton<SharedKernel.Abstractions.IUnitOfWork>(new UnitOfWorkFake())
             .AddSingleton<SharedKernel.Abstractions.IDateTimeProvider>(new RelogioFixo());
 

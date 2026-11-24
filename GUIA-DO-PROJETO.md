@@ -475,15 +475,19 @@ flowchart LR
 
 ```plaintext
 FileForge.Domain/
-  Clientes/       Cliente.cs, Conta.cs, IClienteRepository.cs
-  Transacoes/     Transacao.cs, ITransacaoRepository.cs
-  Solicitacoes/   SolicitacaoArquivo.cs, SolicitacaoArquivoSpecs.cs, ISolicitacaoArquivoRepository.cs
+  Models/          Cliente, Conta, Transacao, SolicitacaoArquivo
+  ValueObjects/    ClienteId, Documento, Dinheiro, DataReferencia, Identificadores
+  Events/          SolicitacaoArquivoCriada, ProcessamentoIniciado, ArquivoGerado, ProcessamentoFalhou
+  Interfaces/      IClienteRepository, ITransacaoRepository, ISolicitacaoArquivoRepository
+  Specifications/  SolicitacaoArquivoSpecs
+  Erros/           DomainErrors
 FileForge.Infrastructure/      ← etapa 9
   Persistence/Repositories/     implementações com EF Core
 ```
 
 - **Interface no Domain, implementação na Infrastructure.** Quem *usa* define o contrato (Inversão de Dependência). Se a interface ficasse junto do EF Core, o Domain dependeria do banco.
-- **Pasta por aggregate**, não uma pasta `Repositories/`: tudo de `SolicitacaoArquivo` fica junto.
+- **Pastas por tipo** (`Models`, `Interfaces`, `Events`...). É a organização mais fácil de navegar com poucos aggregates. Alternativa: pasta **por aggregate** (`Solicitacoes/` com entidade, eventos, regras e repositório juntos), que escala melhor quando o domínio cresce muito.
+- **`Models/` contém só entidades** (com identidade e ciclo de vida). Value Objects, eventos e specifications ficam em pastas próprias porque têm outro papel.
 - **Um repositório por aggregate root.** Não existe `IContaRepository`: `Conta` só é acessada via `Cliente`.
 - **Sem projeto `FileForge.Repository` separado:** repositórios, Unit of Work e Outbox compartilham o mesmo `DbContext` e a mesma transação; ficam juntos em `FileForge.Infrastructure`.
 - **Repositório não conhece outro aggregate.** `ITransacaoRepository.ListarPorContasEDataAsync` recebe `ContaId`s, e não `ClienteId`: a `Transacao` só conhece a conta. O handler carrega o `Cliente`, pega os Ids das contas e repassa. Evolução futura: uma consulta de leitura dedicada (`IExtratoQuery`, estilo CQRS) para gerar o arquivo.
@@ -626,6 +630,7 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 37 | 8 | `IEventBus` na Application, chamado só pelo publicador do Outbox | evitar dupla escrita | handlers nunca publicam direto |
 | 38 | Segurança | Defesa em camadas: identidade, dados e borda | uma camada só (JWT) não protege dados nem endpoints | rate limiting e mascaramento de documento entram na etapa 10 |
 | 39 | Segurança | API só valida JWT (`iss`, `aud`, `exp`, `nbf`, assinatura RS256, clock skew 30 s); Keycloak emite | separar emissor de consumidor; padrão OIDC permite trocar de provedor | audience mapper no realm; testes geram tokens próprios |
+| 40 | Estrutura | Domain organizado por tipo: `Models`, `ValueObjects`, `Events`, `Interfaces`, `Specifications`, `Erros` | mais fácil de navegar com 4 models | substitui a organização por aggregate; pode voltar se o domínio crescer |
 
 ---
 

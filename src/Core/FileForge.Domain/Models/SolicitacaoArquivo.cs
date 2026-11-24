@@ -1,10 +1,11 @@
 using FileForge.Domain.Erros;
+using FileForge.Domain.Events;
 using FileForge.Domain.ValueObjects;
 using FileForge.SharedKernel.Abstractions;
 using FileForge.SharedKernel.Domain;
 using FileForge.SharedKernel.Results;
 
-namespace FileForge.Domain.Solicitacoes;
+namespace FileForge.Domain.Models;
 
 public enum StatusSolicitacao
 {

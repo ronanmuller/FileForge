@@ -1,6 +1,6 @@
 using FileForge.Application.Abstractions.Seguranca;
 using FileForge.Application.Solicitacoes.Obter;
-using FileForge.Domain.Solicitacoes;
+using FileForge.Domain.Interfaces;
 using FileForge.Domain.ValueObjects;
 using FileForge.Mediator;
 using FileForge.SharedKernel.Abstractions;

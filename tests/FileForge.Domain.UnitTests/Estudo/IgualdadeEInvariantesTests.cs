@@ -1,5 +1,6 @@
-using FileForge.Domain.Clientes;
-using FileForge.Domain.Solicitacoes;
+using FileForge.Domain.Events;
+using FileForge.Domain.Models;
+using FileForge.Domain.Specifications;
 using FileForge.Domain.ValueObjects;
 
 namespace FileForge.Domain.UnitTests.Estudo;

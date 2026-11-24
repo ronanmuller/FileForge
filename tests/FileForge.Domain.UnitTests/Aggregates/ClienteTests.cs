@@ -1,5 +1,7 @@
-using FileForge.Domain.Clientes;
 using FileForge.Domain.Erros;
+using FileForge.Domain.Events;
+using FileForge.Domain.Models;
+using FileForge.Domain.Specifications;
 using FileForge.Domain.UnitTests.Builders;
 using FileForge.Domain.ValueObjects;
 
