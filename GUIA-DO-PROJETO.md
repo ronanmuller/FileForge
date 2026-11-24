@@ -19,6 +19,7 @@
 11. [Histórico de decisões](#11-histórico-de-decisões-adr-resumido)
 12. [Segurança: as três camadas](#12-segurança-as-três-camadas)
 13. [Acompanhamento em tempo real: eventos, NoSQL e Redis](#13-acompanhamento-em-tempo-real-eventos-nosql-e-redis)
+14. [Integridade: hash que prova que o dado não foi alterado](#14-integridade-hash-que-prova-que-o-dado-não-foi-alterado)
 
 ---
 
@@ -528,25 +529,64 @@ flowchart LR
 - **`ResultFactory`:** o behavior só conhece `TResponse` genérico; a fábrica cria `Result` ou `Result<T>` de falha. Reflection uma vez por tipo, depois delegate em cache (mesma técnica do Mediator).
 - Novos `ErrorType`: `Unauthorized` (401) e `Forbidden` (403).
 
-### 8.13 Idempotência: por que no banco, e o que mais
+### 8.13 Idempotência: lock moderno na borda + garantia no banco
 
-São **dois problemas diferentes**:
+#### O que resolve
 
-| Problema | Exemplo | Solução |
+| Problema | Exemplo real | Sem proteção |
 |---|---|---|
-| A **mesma** requisição chega duas vezes | timeout e reenvio do mesmo POST | header **`Idempotency-Key`**: devolve a resposta salva (etapa 10/13) |
-| Requisições **diferentes** violam uma regra | dois cliques, celular + computador | **índice único parcial** no banco (etapa 9) |
+| A **mesma** requisição chega duas vezes | timeout do celular, app reenvia o POST; retry automático do Polly | dois extratos gerados, trabalho e custo dobrados |
+| A **mesma** requisição chega duas vezes **ao mesmo tempo** | usuário clica duas vezes rápido | as duas executam em paralelo antes de qualquer uma terminar |
+| A mesma chave com **conteúdo diferente** | bug no cliente reaproveita a chave | a segunda chamada recebe a resposta da primeira, que não tem nada a ver |
+| Requisições **diferentes** violam uma regra | celular e computador pedem o mesmo cliente/data | duas solicitações ativas para o mesmo extrato |
 
-Entre "verificar" (`ExisteAtivaAsync`) e "gravar" existe uma janela em que duas requisições passam. **Só o banco verifica e grava na mesma operação atômica.** Redis, lock distribuído ou cache ficam em outro sistema e sempre deixam uma brecha (lock pode expirar durante uma pausa do processo).
+#### Como funciona (etapa 13): `Idempotency-Key` com lock no Redis
 
-| Camada | Proteção | Etapa |
-|---|---|---|
-| API | `Idempotency-Key` (resposta guardada no Redis) | 10/13 |
-| Application | `ExisteAtivaAsync`: barra a maioria com mensagem clara | ✅ |
-| Banco | índice único parcial `WHERE status IN ('Pendente','Processando')`: **garantia** | 9 |
-| Worker | Inbox por `EventId` (a fila entrega pelo menos uma vez) | 11 |
+O cliente envia um header `Idempotency-Key: <guid>` (padrão de mercado: Stripe, Adyen; proposta de norma na IETF). Um filtro da API faz:
 
-> Frase para entrevista: *"Idempotência na borda com Idempotency-Key; invariante garantida por restrição no banco, o único ponto atômico; consumidor idempotente com Inbox."*
+```mermaid
+flowchart TD
+    R["POST + Idempotency-Key"] --> L{"Redis: SET chave NX EX 30s<br/>(só grava se não existir)"}
+    L -->|"conseguiu = sou o primeiro"| H["executa o handler"]
+    H --> S["salva resposta + SHA-256 do corpo<br/>(TTL 24h)"]
+    L -->|"já existe"| C{"tem resposta salva?"}
+    C -->|"não: ainda processando"| E409["409 Conflict<br/>+ Retry-After"]
+    C -->|"sim"| D{"SHA-256 do corpo igual?"}
+    D -->|"sim"| OK["devolve a MESMA resposta"]
+    D -->|"não"| E422["422: chave reutilizada<br/>com outro conteúdo"]
+```
+
+| Peça | Por que está no código |
+|---|---|
+| `SET NX` (atômico) | "verificar e reservar" numa operação só: duas chamadas simultâneas nunca passam juntas |
+| TTL curto no lock (30 s) | se o processo morrer no meio, o lock expira sozinho e o cliente pode tentar de novo |
+| Token de dono no lock | só quem criou o lock pode liberá-lo (liberação via script Lua: "apaga só se o valor for o meu") |
+| Resposta guardada (TTL 24 h) | o reenvio recebe a resposta original, sem executar de novo |
+| SHA-256 do corpo | detecta chave igual com conteúdo diferente (ver §14) |
+| Chave por usuário (`sub` + chave) | um usuário não consegue "ocupar" a chave de outro |
+
+#### Por que o banco continua sendo a garantia final
+
+O lock no Redis é rápido e resolve quase tudo, mas **sozinho não basta**:
+
+- **Lock pode expirar no meio**: se o processo pausar mais que o TTL (GC, rede lenta), outro entra. É a crítica conhecida ao RedLock.
+- **Redis e banco são sistemas separados**: não há transação entre os dois.
+- **Requisições diferentes** (chaves diferentes) não são barradas pela `Idempotency-Key`.
+
+Por isso o índice único parcial continua lá. A Infrastructure usa `INSERT ... ON CONFLICT DO NOTHING` e transforma o conflito em `JaExisteAtiva` (409), sem exceção.
+
+#### As quatro camadas
+
+| Camada | Proteção | Pega qual caso | Etapa |
+|---|---|---|---|
+| API | `Idempotency-Key` + lock `SET NX` no Redis | mesma requisição repetida ou simultânea | 13 |
+| Application | `ExisteAtivaAsync` | a maioria dos conflitos, com mensagem clara | ✅ |
+| Banco | índice único parcial + `ON CONFLICT` | **qualquer** corrida que passou pelas anteriores | 9 |
+| Worker | Inbox por `EventId` | mensagem duplicada da fila | 11 |
+
+Se o Redis cair, a API segue funcionando: perde o "devolver a mesma resposta", mas o banco impede a duplicata.
+
+> Frase para entrevista: *"Idempotência na borda com Idempotency-Key e lock atômico no Redis, para reenvios e cliques duplos; invariante garantida por restrição no banco, o único ponto atômico com os dados; consumidor idempotente com Inbox, porque a fila entrega pelo menos uma vez."*
 
 ---
 
@@ -664,7 +704,9 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 41 | Observabilidade | `LogDefinitions` por camada,
 | 42 | Idempotência | `Idempotency-Key` na API + `ExisteAtivaAsync` + índice único parcial + Inbox no Worker | cada camada pega um caso; só o banco é atômico | ver §8.13 |
 | 43 | Leitura | Timeline do pedido como **projeção** (MongoDB) dos Domain Events, não Event Sourcing puro | a tela precisa de histórico, não de reconstruir estado; reaproveita Outbox e fila | Event Sourcing com Marten como estudo opcional (14.1) |
-| 44 | Tempo real | Redis (cache + Pub/Sub) e SSE para atualizar a tela | SSE é mais simples que WebSocket para servidor → cliente | sem Redis a tela funciona, só sem "ao vivo" |
+| 44 | Tempo real | Redis (cache + Pub/Sub) e SSE para atual
+| 45 | Integridade | SHA-256 do arquivo guardado no banco (`ChecksumArquivo`), no evento, no trailer e no bucket; HMAC-SHA256 no webhook | hash sozinho detecta corrupção; com segredo (HMAC/assinatura) detecta fraude e autoria | `GetHashCode` nunca é usado para segurança; ver §14 |
+| 46 | Idempotência | `Idempotency-Key` com lock atômico no Redis (`SET NX` + TTL + token de dono), resposta guardada e hash do corpo; banco como garantia final (`ON CONFLICT`) | lock rápido na borda para reenvio e clique duplo; lock sozinho pode expirar e não tem transação com o banco | ver §8.13; substitui o desenho da decisão 42 |
 
 ---
 
@@ -856,8 +898,62 @@ flowchart LR
 |---|---|
 | 9 | Outbox grava os eventos (base de tudo) |
 | 11 | Publicador do Outbox + RabbitMQ |
-| 13 | **Redis**: cache do status, `Idempotency-Key`, Pub/Sub e endpoint **SSE** `GET /solicitacoes/{id}/acompanhar` |
+| 13 | **Redis**: cache do status, `Idempotency-Key` com lock `SET NX` (§8.13), Pub/Sub e endpoint **SSE** `GET /solicitacoes/{id}/acompanhar` |
 | 14 | **MongoDB**: projetor da timeline + endpoint `GET /solicitacoes/{id}/timeline` |
 | 14.1 | (opcional) Event Sourcing com Marten para `SolicitacaoArquivo` |
+
+---
+
+## 14. Integridade: hash que prova que o dado não foi alterado
+
+### 14.1 Dois "hashes" diferentes
+
+| | `GetHashCode` (coleções) | SHA-256 (criptográfico) |
+|---|---|---|
+| Para quê | achar rápido em `HashSet`/`Dictionary` | provar que o dado **não mudou** |
+| Tamanho | 32 bits | 256 bits |
+| Colisão | normal (o `Equals` desempata) | na prática impossível |
+| Estável entre execuções/máquinas | **não** | sim |
+| Pode ser salvo/enviado | **nunca** | sim |
+
+> **Nunca use `GetHashCode` para segurança.**
+
+### 14.2 Hash sozinho × hash com segredo
+
+| Técnica | Detecta | Não detecta |
+|---|---|---|
+| **SHA-256** | corrupção acidental; alteração, **se o hash estiver guardado num lugar que o atacante não alcança** | fraude quando o atacante pode recalcular e trocar o hash junto |
+| **HMAC-SHA256** (segredo compartilhado) | alteração **e** quem enviou | — (se o segredo não vazar) |
+| **Assinatura digital** (RS256, chave privada/pública) | alteração **e** quem enviou, sem compartilhar segredo | — |
+
+O JWT do Keycloak já é o terceiro caso: a API só aceita tokens assinados pela chave privada dele.
+
+### 14.3 Onde usamos no FileForge e o que cada um resolve
+
+| Onde | Técnica | O que resolve | Etapa |
+|---|---|---|---|
+| **Arquivo de extrato** | SHA-256 calculado **enquanto escreve** (`IncrementalHash`) e guardado no banco em `SolicitacaoArquivo.ChecksumArquivo` | arquivo corrompido no upload/armazenamento/download, ou trocado por quem tem acesso ao bucket: o hash recalculado não bate com o do banco | 12.1 |
+| Evento `ArquivoGerado` | leva o checksum | quem consome o evento confere o arquivo sem consultar o banco | 12.1 |
+| Trailer do arquivo | hash das linhas anteriores | quem recebe o arquivo **fora** do sistema (outro banco, ERP) confere que chegou inteiro | 12.1 |
+| Metadado no bucket | checksum gravado junto do objeto | verificação rápida no próprio storage | 12.1 |
+| Download | recalcula e compara; se divergir, recusa e loga alerta | o usuário nunca recebe arquivo adulterado | 12.1 |
+| `Idempotency-Key` | SHA-256 do corpo da requisição | chave reutilizada com conteúdo diferente → 422 | 13.1 |
+| Webhook "arquivo gerado" | **HMAC-SHA256** + timestamp + id único | o sistema externo prova que a mensagem veio de nós, não foi alterada e não é reenvio (*replay*) | 12.2 (opcional) |
+
+### 14.4 Onde o código vai ficar
+
+| Peça | Camada | Motivo |
+|---|---|---|
+| `ChecksumArquivo` (Value Object: 64 hex, `Criar` valida) | Domain | o checksum é parte do resultado do negócio; o VO garante o formato |
+| `SolicitacaoArquivo.Concluir(nomeArquivo, checksum, relogio)` | Domain | concluída **sempre** tem checksum (invariante) |
+| Cálculo do SHA-256 / HMAC | Infrastructure / Worker | é tecnologia (`System.Security.Cryptography`), não regra |
+| Comparação de assinaturas | Infrastructure | `CryptographicOperations.FixedTimeEquals`: comparação em tempo constante, para não vazar a assinatura pelo tempo de resposta |
+
+### 14.5 Cuidados
+
+- **Tempo constante** na comparação de HMAC (`FixedTimeEquals`), nunca `==`.
+- **Anti-replay** no webhook: timestamp dentro do que é assinado + janela de 5 min + id único já visto é recusado.
+- **Segredo do HMAC** fora do código (user-secrets/Key Vault), com rotação.
+- **Arquivo grande**: calcular o hash em streaming, sem carregar o arquivo inteiro na memória.
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->

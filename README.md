@@ -209,7 +209,11 @@ tests/
   - [ ] 10.3 Proteção de dados: **mascaramento de CPF/CNPJ** em logs e respostas (LGPD)
 - [ ] Etapa 11 — Worker + RabbitMQ: consumidor idempotente, retry, dead-letter, simulação de falhas, comandos no dashboard
 - [ ] Etapa 12 — Geração do arquivo sequencial + Bucket (MinIO/Azurite) + Polly
-- [ ] Etapa 13 — Redis: cache do status, `Idempotency-Key`, Pub/Sub + endpoint SSE de acompanhamento em tempo real
+  - [ ] 12.1 **Integridade**: SHA-256 do arquivo (`ChecksumArquivo` no `SolicitacaoArquivo`, no evento, no trailer e no bucket; verificação no download)
+  - [ ] 12.2 (opcional) Webhook de "arquivo gerado" assinado com **HMAC-SHA256** (timestamp + anti-replay)
+- [ ] Etapa 13 — Redis: cache do status, Pub/Sub + endpoint SSE de acompanhamento em tempo real
+  - [ ] 13.1 **Idempotência moderna**: `Idempotency-Key` com lock atômico no Redis (`SET NX` + TTL + token de dono), resposta guardada, SHA-256 do corpo (422 se mudar), 409 se ainda em processamento
+  - [ ] 13.2 Resiliência: se o Redis cair, a garantia continua no banco (índice único + `INSERT ... ON CONFLICT`)
 - [ ] Etapa 14 — MongoDB: projeção da timeline do pedido (histórico tipo rastreio de e-commerce)
   - [ ] 14.1 (opcional) Event Sourcing com Marten para `SolicitacaoArquivo`
 - [ ] Etapa 15 — OpenTelemetry completo + Health Checks
