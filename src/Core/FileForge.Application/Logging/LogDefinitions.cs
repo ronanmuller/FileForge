@@ -3,15 +3,18 @@ using Microsoft.Extensions.Logging;
 namespace FileForge.Application.Logging;
 
 /// <summary>
-/// Catálogo central de logs da aplicação.
+/// Catálogo de logs da camada Application.
 /// Usa o source generator <see cref="LoggerMessageAttribute"/>: sem boxing, sem parse de template em runtime,
 /// e o nível é verificado antes de montar a mensagem. Cada log tem um <c>EventId</c> fixo, pesquisável
 /// em qualquer ferramenta de observabilidade (Seq, Grafana Loki, Application Insights...).
 /// </summary>
 /// <remarks>
-/// Faixas de EventId: 1000-1099 pipeline | 1100-1199 eventos de domínio | 1200-1299 segurança | 2000+ reservado (Outbox/Worker).
+/// <c>internal</c>: cada camada tem o seu próprio catálogo e só usa o dela.
+/// Faixas por camada: Application 1000-1999 | Infrastructure 2000-2999 | Worker 3000-3999 | API 4000-4999.
+/// Dentro da Application: 1000-1099 pipeline | 1200-1299 segurança.
+/// Um teste de arquitetura garante que não há EventId repetido nem fora da faixa.
 /// </remarks>
-public static partial class LogDefinitions
+internal static partial class LogDefinitions
 {
     [LoggerMessage(EventId = 1000, Level = LogLevel.Information,
         Message = "Processando {RequestName}")]
@@ -33,10 +36,6 @@ public static partial class LogDefinitions
     [LoggerMessage(EventId = 1004, Level = LogLevel.Warning,
         Message = "{RequestName} lenta: {ElapsedMs} ms (limite {LimiteMs} ms)")]
     public static partial void RequisicaoLenta(this ILogger logger, string requestName, double elapsedMs, int limiteMs);
-
-    [LoggerMessage(EventId = 1100, Level = LogLevel.Information,
-        Message = "Evento de domínio {EventName} ({EventId}) publicado")]
-    public static partial void EventoDeDominioPublicado(this ILogger logger, string eventName, Guid eventId);
 
     [LoggerMessage(EventId = 1200, Level = LogLevel.Warning,
         Message = "Acesso negado a {RequestName} para o usuário {UserId}: falta a permissão {Permissao}")]

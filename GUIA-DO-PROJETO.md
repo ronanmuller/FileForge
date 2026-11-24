@@ -419,6 +419,15 @@ public static partial void RequisicaoFalhouNegocio(this ILogger logger, ...);
 
 **Regra:** logar **uma vez, na borda**. O `LoggingBehavior` é o behavior mais externo e loga início, fim, duração e desfecho de **toda** requisição. Handlers e Domain não logam (o Domain nem pode: o teste de arquitetura proíbe `Microsoft.Extensions.Logging` no Domain).
 
+**Um catálogo por camada, sem projeto compartilhado.** Cada camada tem o seu `LogDefinitions` (`internal`), porque cada log pertence a quem o produz: os logs do Outbox falam de banco e fila e não devem ficar visíveis para a Application. Para evitar `EventId` repetido entre camadas, cada uma tem uma faixa, verificada pelo teste `LogDefinitionsTests`:
+
+| Camada | Faixa | Status |
+|---|---|---|
+| Application | 1000–1999 (1000–1099 pipeline, 1200–1299 segurança) | ✅ |
+| Infrastructure (Outbox) | 2000–2999 | etapa 9 |
+| Worker | 3000–3999 | etapa 11 |
+| API | 4000–4999 | etapa 10 |
+
 | Desfecho | Nível | EventId |
 |---|---|---|
 | Sucesso | Information | 1001 |
@@ -631,6 +640,7 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 38 | Segurança | Defesa em camadas: identidade, dados e borda | uma camada só (JWT) não protege dados nem endpoints | rate limiting e mascaramento de documento entram na etapa 10 |
 | 39 | Segurança | API só valida JWT (`iss`, `aud`, `exp`, `nbf`, assinatura RS256, clock skew 30 s); Keycloak emite | separar emissor de consumidor; padrão OIDC permite trocar de provedor | audience mapper no realm; testes geram tokens próprios |
 | 40 | Estrutura | Domain organizado por tipo: `Models`, `ValueObjects`, `Events`, `Interfaces`, `Specifications`, `Erros` | mais fácil de navegar com 4 models | substitui a organização por aggregate; pode voltar se o domínio crescer |
+| 41 | Observabilidade | `LogDefinitions` por camada, `internal`, com faixa de `EventId`; sem projeto "Common" | log pertence a quem o produz; projeto comum vira atalho entre camadas | `LogDefinitionsTests` barra EventId repetido ou fora da faixa; `ServiceDefaults` (etapa 10) e `Contracts` (etapa 11) serão os únicos projetos compartilhados novos |
 
 ---
 
