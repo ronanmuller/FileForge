@@ -209,8 +209,9 @@ tests/
   - [ ] 10.3 Proteção de dados: **mascaramento de CPF/CNPJ** em logs e respostas (LGPD)
 - [ ] Etapa 11 — Worker + RabbitMQ: consumidor idempotente, retry, dead-letter, simulação de falhas, comandos no dashboard
 - [ ] Etapa 12 — Geração do arquivo sequencial + Bucket (MinIO/Azurite) + Polly
-- [ ] Etapa 13 — Redis
-- [ ] Etapa 14 — MongoDB
+- [ ] Etapa 13 — Redis: cache do status, `Idempotency-Key`, Pub/Sub + endpoint SSE de acompanhamento em tempo real
+- [ ] Etapa 14 — MongoDB: projeção da timeline do pedido (histórico tipo rastreio de e-commerce)
+  - [ ] 14.1 (opcional) Event Sourcing com Marten para `SolicitacaoArquivo`
 - [ ] Etapa 15 — OpenTelemetry completo + Health Checks
 - [ ] Etapa 16 — Testcontainers (testes de arquitetura ✅ antecipados)
 - [x] Etapa 17 — CI (GitHub Actions) ✅ antecipado

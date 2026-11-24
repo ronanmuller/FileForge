@@ -18,6 +18,7 @@
 10. [Testes: como rodar e debugar para estudar](#10-testes-como-rodar-e-debugar-para-estudar)
 11. [Histórico de decisões](#11-histórico-de-decisões-adr-resumido)
 12. [Segurança: as três camadas](#12-segurança-as-três-camadas)
+13. [Acompanhamento em tempo real: eventos, NoSQL e Redis](#13-acompanhamento-em-tempo-real-eventos-nosql-e-redis)
 
 ---
 
@@ -527,6 +528,26 @@ flowchart LR
 - **`ResultFactory`:** o behavior só conhece `TResponse` genérico; a fábrica cria `Result` ou `Result<T>` de falha. Reflection uma vez por tipo, depois delegate em cache (mesma técnica do Mediator).
 - Novos `ErrorType`: `Unauthorized` (401) e `Forbidden` (403).
 
+### 8.13 Idempotência: por que no banco, e o que mais
+
+São **dois problemas diferentes**:
+
+| Problema | Exemplo | Solução |
+|---|---|---|
+| A **mesma** requisição chega duas vezes | timeout e reenvio do mesmo POST | header **`Idempotency-Key`**: devolve a resposta salva (etapa 10/13) |
+| Requisições **diferentes** violam uma regra | dois cliques, celular + computador | **índice único parcial** no banco (etapa 9) |
+
+Entre "verificar" (`ExisteAtivaAsync`) e "gravar" existe uma janela em que duas requisições passam. **Só o banco verifica e grava na mesma operação atômica.** Redis, lock distribuído ou cache ficam em outro sistema e sempre deixam uma brecha (lock pode expirar durante uma pausa do processo).
+
+| Camada | Proteção | Etapa |
+|---|---|---|
+| API | `Idempotency-Key` (resposta guardada no Redis) | 10/13 |
+| Application | `ExisteAtivaAsync`: barra a maioria com mensagem clara | ✅ |
+| Banco | índice único parcial `WHERE status IN ('Pendente','Processando')`: **garantia** | 9 |
+| Worker | Inbox por `EventId` (a fila entrega pelo menos uma vez) | 11 |
+
+> Frase para entrevista: *"Idempotência na borda com Idempotency-Key; invariante garantida por restrição no banco, o único ponto atômico; consumidor idempotente com Inbox."*
+
 ---
 
 ## 9. Detalhes de código que parecem estranhos
@@ -640,7 +661,10 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 38 | Segurança | Defesa em camadas: identidade, dados e borda | uma camada só (JWT) não protege dados nem endpoints | rate limiting e mascaramento de documento entram na etapa 10 |
 | 39 | Segurança | API só valida JWT (`iss`, `aud`, `exp`, `nbf`, assinatura RS256, clock skew 30 s); Keycloak emite | separar emissor de consumidor; padrão OIDC permite trocar de provedor | audience mapper no realm; testes geram tokens próprios |
 | 40 | Estrutura | Domain organizado por tipo: `Models`, `ValueObjects`, `Events`, `Interfaces`, `Specifications`, `Erros` | mais fácil de navegar com 4 models | substitui a organização por aggregate; pode voltar se o domínio crescer |
-| 41 | Observabilidade | `LogDefinitions` por camada, `internal`, com faixa de `EventId`; sem projeto "Common" | log pertence a quem o produz; projeto comum vira atalho entre camadas | `LogDefinitionsTests` barra EventId repetido ou fora da faixa; `ServiceDefaults` (etapa 10) e `Contracts` (etapa 11) serão os únicos projetos compartilhados novos |
+| 41 | Observabilidade | `LogDefinitions` por camada,
+| 42 | Idempotência | `Idempotency-Key` na API + `ExisteAtivaAsync` + índice único parcial + Inbox no Worker | cada camada pega um caso; só o banco é atômico | ver §8.13 |
+| 43 | Leitura | Timeline do pedido como **projeção** (MongoDB) dos Domain Events, não Event Sourcing puro | a tela precisa de histórico, não de reconstruir estado; reaproveita Outbox e fila | Event Sourcing com Marten como estudo opcional (14.1) |
+| 44 | Tempo real | Redis (cache + Pub/Sub) e SSE para atualizar a tela | SSE é mais simples que WebSocket para servidor → cliente | sem Redis a tela funciona, só sem "ao vivo" |
 
 ---
 
@@ -754,5 +778,86 @@ Scope **e** permissão se somam: os dois precisam estar presentes.
 | Não dá para revogar antes do `exp` | Vida curta (5 min) + refresh token |
 | É assinado, **não criptografado** (qualquer um lê) | Nada sensível no token; só HTTPS; nunca logar o token |
 | Permissão pode estar desatualizada | Vida curta; ações críticas consultam o estado atual |
+
+---
+
+## 13. Acompanhamento em tempo real: eventos, NoSQL e Redis
+
+> Objetivo: uma tela igual ao rastreio de pedido de e-commerce. "Solicitado às 10:02 → Em processamento às 10:03 → Arquivo gerado às 10:05", atualizando sozinha.
+
+### 13.1 Event Sourcing × linha do tempo projetada
+
+| | **Event Sourcing** "puro" | **Linha do tempo projetada** (escolhida) |
+|---|---|---|
+| Fonte da verdade | a lista de eventos; o estado é recalculado somando os eventos | a tabela `solicitacoes_arquivo` no PostgreSQL |
+| Histórico | é o próprio armazenamento | uma cópia de leitura montada a partir dos eventos |
+| Complexidade | alta: versionar eventos, snapshots, reconstruir projeções, índice único fica difícil | moderada: reaproveita Outbox e fila |
+| Quando vale | auditoria legal, "voltar no tempo", domínio muito orientado a eventos | mostrar histórico e status ao usuário |
+
+**Decisão:** o que a tela precisa é um **histórico de leitura**, não reconstruir o estado. Então usamos **Domain Events + Outbox + projeção** (padrão CQRS: um modelo para escrever, outro para ler). Os eventos já existem e já têm `EventId`, horário e `SolicitadoPor`.
+
+Event Sourcing "puro" fica como **etapa opcional de estudo (14.1)**: transformar `SolicitacaoArquivo` em aggregate event-sourced com **Marten** (event store sobre o próprio PostgreSQL). Ele é bom candidato por já ser uma máquina de status que gera eventos.
+
+### 13.2 Quem faz o quê
+
+| Tecnologia | Papel | Por que ela |
+|---|---|---|
+| **PostgreSQL** | estado atual + Outbox (escrita) | transação e índice único |
+| **RabbitMQ** | transporta os eventos | desacopla quem escreve de quem projeta |
+| **MongoDB** (NoSQL) | documento `timeline` por solicitação, com a lista de etapas | um documento já pronto para a tela: uma leitura, sem JOIN; formato flexível para etapas novas |
+| **Redis** | (1) cache do status atual; (2) **Pub/Sub** para avisar a API em tempo real; (3) respostas da `Idempotency-Key` | leitura em memória; mensagens instantâneas entre processos |
+| **SSE** (Server-Sent Events) | a API empurra cada etapa nova para o navegador | mais simples que WebSocket: só servidor → cliente, sobre HTTP comum |
+
+```mermaid
+flowchart LR
+    H["Handler"] --> PG[("PostgreSQL<br/>estado + Outbox")]
+    PG --> OP["Publicador Outbox"] --> Q[["RabbitMQ"]]
+    Q --> W["Worker<br/>gera o arquivo"]
+    Q --> P["Projetor da timeline"]
+    P -->|"upsert idempotente<br/>por EventId"| M[("MongoDB<br/>timeline")]
+    P -->|"atualiza"| RC[("Redis<br/>cache status")]
+    P -->|"publica"| RP[["Redis Pub/Sub"]]
+    RP --> API["API"]
+    API -->|"SSE"| T["Tela de acompanhamento"]
+    T -->|"GET timeline"| API
+    API --> M
+```
+
+### 13.3 Documento no MongoDB
+
+```json
+{
+  "_id": "solicitacao-guid",
+  "clienteId": "cliente-guid",
+  "dataReferencia": "2025-01-10",
+  "statusAtual": "Processando",
+  "etapas": [
+    { "eventId": "e1", "tipo": "SolicitacaoArquivoCriada", "status": "Pendente",     "ocorridoEm": "2025-01-15T10:02:00Z", "por": "ana" },
+    { "eventId": "e2", "tipo": "ProcessamentoIniciado",    "status": "Processando", "ocorridoEm": "2025-01-15T10:03:00Z", "tentativa": 1 }
+  ]
+}
+```
+
+### 13.4 Cuidados (onde está o aprendizado)
+
+| Cuidado | Solução |
+|---|---|
+| Evento duplicado (fila entrega pelo menos uma vez) | só adiciona a etapa se o `eventId` ainda não estiver na lista (`$addToSet`/filtro) |
+| Eventos fora de ordem | ordenar pela `ocorridoEm` do evento, não pela chegada; `statusAtual` só avança se o evento for mais novo |
+| Projeção atrasada (consistência eventual) | a tela mostra "atualizando…"; o status "oficial" continua no PostgreSQL |
+| Projeção corrompida ou mudança de formato | reprocessar: os eventos ficam guardados no Outbox, então dá para reconstruir a timeline |
+| Cache desatualizado | cache-aside com expiração curta + invalidação quando chega evento novo |
+| Segurança | a timeline segue a mesma regra anti-IDOR (só o próprio cliente; 404 para os outros); nada de CPF na timeline |
+| Redis fora do ar | a tela continua funcionando lendo do MongoDB; só perde o "ao vivo" |
+
+### 13.5 Onde entra no roadmap
+
+| Etapa | Conteúdo |
+|---|---|
+| 9 | Outbox grava os eventos (base de tudo) |
+| 11 | Publicador do Outbox + RabbitMQ |
+| 13 | **Redis**: cache do status, `Idempotency-Key`, Pub/Sub e endpoint **SSE** `GET /solicitacoes/{id}/acompanhar` |
+| 14 | **MongoDB**: projetor da timeline + endpoint `GET /solicitacoes/{id}/timeline` |
+| 14.1 | (opcional) Event Sourcing com Marten para `SolicitacaoArquivo` |
 
 <!-- Próximas entradas: Etapa 7 (repositórios + Unit of Work) ... -->
