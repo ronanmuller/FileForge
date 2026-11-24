@@ -12,6 +12,68 @@ public class SolicitacaoArquivoTests
 
     private SolicitacaoArquivo NovaSolicitacao() => Um.Solicitacao().ComRelogio(_relogio).Build();
 
+    /// <summary>Tabela completa da máquina de status: cada transição, a partir de cada status.</summary>
+    public static TheoryData<string, StatusSolicitacao, bool> Transicoes => new()
+    {
+        { "Iniciar",     StatusSolicitacao.Pendente,    true  },
+        { "Iniciar",     StatusSolicitacao.Processando, false },
+        { "Iniciar",     StatusSolicitacao.Concluida,   false },
+        { "Iniciar",     StatusSolicitacao.Falhou,      false },
+        { "Concluir",    StatusSolicitacao.Pendente,    false },
+        { "Concluir",    StatusSolicitacao.Processando, true  },
+        { "Concluir",    StatusSolicitacao.Concluida,   false },
+        { "Concluir",    StatusSolicitacao.Falhou,      false },
+        { "Falhar",      StatusSolicitacao.Pendente,    false },
+        { "Falhar",      StatusSolicitacao.Processando, true  },
+        { "Falhar",      StatusSolicitacao.Concluida,   false },
+        { "Falhar",      StatusSolicitacao.Falhou,      false },
+        { "Reprocessar", StatusSolicitacao.Pendente,    false },
+        { "Reprocessar", StatusSolicitacao.Processando, false },
+        { "Reprocessar", StatusSolicitacao.Concluida,   false },
+        { "Reprocessar", StatusSolicitacao.Falhou,      true  },
+    };
+
+    [Theory]
+    [MemberData(nameof(Transicoes))]
+    public void MaquinaDeStatus_SoPermiteTransicoesValidas(string acao, StatusSolicitacao de, bool permitida)
+    {
+        var s = de switch
+        {
+            StatusSolicitacao.Processando => Um.Solicitacao().Processando().Build(),
+            StatusSolicitacao.Concluida => Um.Solicitacao().Concluida().Build(),
+            StatusSolicitacao.Falhou => Um.Solicitacao().Falhada().Build(),
+            _ => Um.Solicitacao().Build(),
+        };
+        var eventosAntes = s.DomainEvents.Count;
+
+        var result = acao switch
+        {
+            "Iniciar" => s.IniciarProcessamento(_relogio),
+            "Concluir" => s.Concluir("a.txt", _relogio),
+            "Falhar" => s.Falhar("erro", _relogio),
+            _ => s.Reprocessar(_relogio),
+        };
+
+        Assert.Equal(permitida, result.IsSuccess);
+        if (!permitida)
+        {
+            Assert.Equal(DomainErrors.SolicitacaoArquivo.TransicaoInvalida, result.Error);
+            Assert.Equal(de, s.Status);
+            Assert.Equal(eventosAntes, s.DomainEvents.Count);
+        }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Criar_SemQuemPediu_LancaExcecao(string? solicitadoPor) =>
+        Assert.ThrowsAny<ArgumentException>(() => SolicitacaoArquivo.Criar(
+            Domain.ValueObjects.ClienteId.Novo(),
+            Domain.ValueObjects.DataReferencia.Criar(new DateOnly(2025, 1, 10), _relogio).Value,
+            solicitadoPor!,
+            _relogio));
+
     [Fact]
     public void Criar_DeveFicarPendenteEAtiva_ERegistrarEvento()
     {

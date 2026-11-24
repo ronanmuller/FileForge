@@ -177,6 +177,55 @@ public sealed class SolicitacoesPipelineTests : IDisposable
     // ---------- Reprocessamento ----------
 
     [Fact]
+    public async Task Obter_IdInexistente_Retorna404()
+    {
+        var result = await ComoUsuario(UsuarioFake.Ana()).Send(new ObterSolicitacaoQuery(Guid.NewGuid()));
+
+        Assert.Equal(ErrosDeSolicitacao.NaoEncontrada, result.Error);
+    }
+
+    [Fact]
+    public async Task Obter_Anonimo_RetornaUnauthorized()
+    {
+        var result = await ComoUsuario(UsuarioFake.Anonimo()).Send(new ObterSolicitacaoQuery(Guid.NewGuid()));
+
+        Assert.Equal(ErrorType.Unauthorized, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task Criar_DataNoFuturo_RetornaErroDeDominioSemCommit()
+    {
+        var result = await ComoUsuario(UsuarioFake.Ana()).Send(new CriarSolicitacaoCommand(new DateOnly(2025, 1, 16)));
+
+        Assert.Equal(DomainErrors.DataReferencia.NoFuturo, result.Error);
+        Assert.Empty(_repo.Itens);
+        Assert.Equal(0, _uow.Commits);
+    }
+
+    [Fact]
+    public async Task Criar_AposFalhaDaAnterior_PermiteNovaSolicitacao()
+    {
+        var mediator = ComoUsuario(UsuarioFake.Ana());
+        await mediator.Send(new CriarSolicitacaoCommand(Dia10));
+        var primeira = _repo.Itens.Single();
+        primeira.IniciarProcessamento(_relogio);
+        primeira.Falhar("erro", _relogio);
+
+        var segunda = await mediator.Send(new CriarSolicitacaoCommand(Dia10));
+
+        Assert.True(segunda.IsSuccess);
+        Assert.Equal(2, _repo.Itens.Count);
+    }
+
+    [Fact]
+    public async Task Reprocessar_IdInexistente_Retorna404()
+    {
+        var result = await ComoUsuario(UsuarioFake.Operador()).Send(new ReprocessarSolicitacaoCommand(Guid.NewGuid()));
+
+        Assert.Equal(ErrosDeSolicitacao.NaoEncontrada, result.Error);
+    }
+
+    [Fact]
     public async Task Reprocessar_OperadorComSolicitacaoFalhada_VoltaParaPendente()
     {
         var id = (await ComoUsuario(UsuarioFake.Ana()).Send(new CriarSolicitacaoCommand(Dia10))).Value;
