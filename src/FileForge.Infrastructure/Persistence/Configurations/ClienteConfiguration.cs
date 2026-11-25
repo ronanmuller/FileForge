@@ -29,33 +29,10 @@ internal sealed class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
 
         builder.Ignore(x => x.DomainEvents);
 
-        builder.OwnsMany(x => x.Contas, conta =>
-        {
-            conta.ToTable("contas");
-            conta.WithOwner().HasForeignKey("cliente_id");
-            conta.Property<ClienteId>("cliente_id")
-                .HasConversion(v => v.Value, v => new ClienteId(v));
-
-            conta.HasKey(x => x.Id);
-            conta.Property(x => x.Id)
-                .HasColumnName("id")
-                .HasConversion(v => v.Value, v => new ContaId(v))
-                .ValueGeneratedNever();
-
-            conta.Property(x => x.Agencia)
-                .HasColumnName("agencia")
-                .HasMaxLength(5)
-                .IsRequired();
-
-            conta.Property(x => x.Numero)
-                .HasColumnName("numero")
-                .HasMaxLength(12)
-                .IsRequired();
-
-            conta.HasIndex(nameof(Conta.Agencia), nameof(Conta.Numero))
-                .IsUnique()
-                .HasDatabaseName("ux_contas_agencia_numero");
-        });
+        builder.HasMany(x => x.Contas)
+            .WithOne()
+            .HasForeignKey("cliente_id")
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Navigation(x => x.Contas)
             .UsePropertyAccessMode(PropertyAccessMode.Field);

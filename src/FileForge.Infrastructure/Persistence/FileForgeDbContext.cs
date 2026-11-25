@@ -10,6 +10,7 @@ namespace FileForge.Infrastructure.Persistence;
 public sealed class FileForgeDbContext(DbContextOptions<FileForgeDbContext> options) : DbContext(options)
 {
     public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<Conta> Contas => Set<Conta>();
     public DbSet<Transacao> Transacoes => Set<Transacao>();
     public DbSet<SolicitacaoArquivo> SolicitacoesArquivo => Set<SolicitacaoArquivo>();
 

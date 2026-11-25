@@ -93,6 +93,20 @@ public sealed class RepositoriosPostgresTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ExisteConta_PorAgenciaENumero_IndependenteDoCliente()
+    {
+        var cliente = Cliente.Criar("Ana", Documento.Criar("52998224725").Value).Value;
+        cliente.AdicionarConta("00001", "123456789012");
+        await Salvar(db => db.Clientes.Add(cliente));
+
+        await using var escopo = Escopo();
+        var repo = escopo.ServiceProvider.GetRequiredService<IContaRepository>();
+
+        Assert.True(await repo.ExisteAsync("00001", "123456789012", default));
+        Assert.False(await repo.ExisteAsync("00002", "123456789012", default));
+    }
+
+    [Fact]
     public async Task ExisteAtiva_ComSpecificationNoBanco_RespondeCorretamente()
     {
         var clienteId = ClienteId.Novo();
