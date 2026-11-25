@@ -5,6 +5,7 @@ using FileForge.Infrastructure.Persistence.Repositories;
 using FileForge.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FileForge.Infrastructure;
 
@@ -30,6 +31,9 @@ public static class DependencyInjection
         services.AddScoped<ITransacaoRepository, TransacaoRepository>();
         services.AddScoped<ISolicitacaoArquivoRepository, SolicitacaoArquivoRepository>();
         services.AddScoped<IContaRepository, ContaRepository>();
+        services.AddSingleton<IMensagePublicador, PublicadorEmMemoria>();
+        services.AddSingleton<IOutboxRelay, OutboxRelay>();
+        services.AddHostedService(sp => (OutboxRelay)sp.GetRequiredService<IOutboxRelay>());
 
         return services;
     }

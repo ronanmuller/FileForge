@@ -50,6 +50,41 @@ namespace FileForge.Infrastructure.Persistence.Migrations
                     b.ToTable("clientes", (string)null);
                 });
 
+            modelBuilder.Entity("FileForge.Domain.Models.Conta", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Agencia")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("agencia");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("numero");
+
+                    b.Property<Guid>("cliente_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contas");
+
+                    b.HasIndex("cliente_id")
+                        .HasDatabaseName("ix_contas_cliente_id");
+
+                    b.HasIndex("Agencia", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ux_contas_agencia_numero");
+
+                    b.ToTable("contas", (string)null);
+                });
+
             modelBuilder.Entity("FileForge.Domain.Models.SolicitacaoArquivo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -149,47 +184,57 @@ namespace FileForge.Infrastructure.Persistence.Migrations
                     b.ToTable("transacoes", (string)null);
                 });
 
+            modelBuilder.Entity("FileForge.Infrastructure.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("conteudo");
+
+                    b.Property<DateTime>("CriadaEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criada_em_utc");
+
+                    b.Property<DateTime?>("PublicadaEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("publicada_em_utc");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("integer")
+                        .HasColumnName("tentativas");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.HasIndex("CriadaEmUtc")
+                        .HasDatabaseName("ix_outbox_pendentes")
+                        .HasFilter("publicada_em_utc IS NULL");
+
+                    b.ToTable("outbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("FileForge.Domain.Models.Conta", b =>
+                {
+                    b.HasOne("FileForge.Domain.Models.Cliente", null)
+                        .WithMany("Contas")
+                        .HasForeignKey("cliente_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_contas_clientes_cliente_id");
+                });
+
             modelBuilder.Entity("FileForge.Domain.Models.Cliente", b =>
                 {
-                    b.OwnsMany("FileForge.Domain.Models.Conta", "Contas", b1 =>
-                        {
-                            b1.Property<Guid>("Id")
-                                .HasColumnType("uuid")
-                                .HasColumnName("id");
-
-                            b1.Property<string>("Agencia")
-                                .IsRequired()
-                                .HasMaxLength(5)
-                                .HasColumnType("character varying(5)")
-                                .HasColumnName("agencia");
-
-                            b1.Property<string>("Numero")
-                                .IsRequired()
-                                .HasMaxLength(12)
-                                .HasColumnType("character varying(12)")
-                                .HasColumnName("numero");
-
-                            b1.Property<Guid>("cliente_id")
-                                .HasColumnType("uuid")
-                                .HasColumnName("cliente_id");
-
-                            b1.HasKey("Id")
-                                .HasName("pk_contas");
-
-                            b1.HasIndex("cliente_id")
-                                .HasDatabaseName("ix_contas_cliente_id");
-
-                            b1.HasIndex("Agencia", "Numero")
-                                .IsUnique()
-                                .HasDatabaseName("ux_contas_agencia_numero");
-
-                            b1.ToTable("contas", (string)null);
-
-                            b1.WithOwner()
-                                .HasForeignKey("cliente_id")
-                                .HasConstraintName("fk_contas_clientes_cliente_id");
-                        });
-
                     b.Navigation("Contas");
                 });
 #pragma warning restore 612, 618

@@ -4,6 +4,7 @@ using FileForge.Domain.ValueObjects;
 using FileForge.Infrastructure.Outbox;
 using FileForge.Infrastructure.Persistence;
 using FileForge.Mediator;
+using FileForge.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -56,6 +57,43 @@ public sealed class ConcluirSolicitacaoOutboxTests() : PostgresFixture("fileforg
         await using var leitura = Escopo();
         var db = leitura.ServiceProvider.GetRequiredService<FileForgeDbContext>();
         Assert.Empty(await db.OutboxMessages.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Concluir_FalhaNoCommitAposAsDuasEscritas_NemStatusNemOutboxSaoGravados()
+    {
+        var id = await CriarEmProcessamento();
+
+        await using (var escopo = Escopo())
+        {
+            var db = escopo.ServiceProvider.GetRequiredService<FileForgeDbContext>();
+            var registrador = escopo.ServiceProvider.GetRequiredService<IRegistradorDeEventos>();
+            var unitOfWork = escopo.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+            var solicitacao = await db.SolicitacoesArquivo.SingleAsync(s => s.Id == new SolicitacaoArquivoId(id));
+            var resultado = solicitacao.Concluir("extrato.txt", Relogio);
+            Assert.True(resultado.IsSuccess);
+
+            // 1ª escrita: ArquivoGerado válido, pelo caminho real do registrador.
+            registrador.RegistrarEventos();
+
+            // 2ª escrita: Tipo com 201 caracteres numa coluna varchar(200). O PostgreSQL recusa
+            // depois que o status e a primeira mensagem já estão no mesmo SaveChanges.
+            db.OutboxMessages.Add(new OutboxMessage(Guid.NewGuid(), new string('x', 201), "{}", Relogio.UtcNow));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => unitOfWork.SaveChangesAsync());
+        }
+
+        await using var leitura = Escopo();
+        var banco = leitura.ServiceProvider.GetRequiredService<FileForgeDbContext>();
+
+        var status = await banco.SolicitacoesArquivo.AsNoTracking()
+            .Where(s => s.Id == new SolicitacaoArquivoId(id))
+            .Select(s => s.Status)
+            .SingleAsync();
+        Assert.Equal(StatusSolicitacao.Processando, status);
+
+        Assert.Empty(await banco.OutboxMessages.AsNoTracking().ToListAsync());
     }
 
     private async Task<Guid> CriarPendente()

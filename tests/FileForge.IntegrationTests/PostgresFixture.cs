@@ -18,13 +18,15 @@ namespace FileForge.IntegrationTests;
 public abstract class PostgresFixture(string nomeDoBanco) : IAsyncLifetime
 {
     private const string _variavelConexao = "FILEFORGE_TEST_CONN";
+    private const string _conexaoLocal = "Host=localhost;Port=5432;Username=fileforge;Password=fileforge";
 
     protected ServiceProvider Provider { get; private set; } = null!;
     protected RelogioTeste Relogio { get; } = new();
+    protected string ConexaoAtual => ConexaoDeTeste(nomeDoBanco);
 
     public async Task InitializeAsync()
     {
-        var conexao = ConexaoDeTeste(nomeDoBanco);
+        var conexao = ConexaoAtual;
         Provider = new ServiceCollection()
             .AddInfrastructure(conexao)
             .AddApplication()
@@ -57,10 +59,7 @@ public abstract class PostgresFixture(string nomeDoBanco) : IAsyncLifetime
 
     private static string ConexaoDeTeste(string nomeDoBanco)
     {
-        var baseConexao = Environment.GetEnvironmentVariable(_variavelConexao)
-            ?? throw new InvalidOperationException(
-                $"Defina a variável {_variavelConexao} com a connection string base do PostgreSQL para os testes de integração.");
-
+        var baseConexao = Environment.GetEnvironmentVariable(_variavelConexao) ?? _conexaoLocal;
         var builder = new Npgsql.NpgsqlConnectionStringBuilder(baseConexao) { Database = nomeDoBanco };
         return builder.ConnectionString;
     }
