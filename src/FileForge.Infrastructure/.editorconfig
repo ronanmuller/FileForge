@@ -1,0 +1,9 @@
+[Persistence/Migrations/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.category-Style.severity = none
+dotnet_analyzer_diagnostic.category-Maintainability.severity = none
+dotnet_analyzer_diagnostic.category-Performance.severity = none
+dotnet_analyzer_diagnostic.category-Design.severity = none
+dotnet_analyzer_diagnostic.category-Reliability.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.IDE0161.severity = none
