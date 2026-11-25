@@ -208,7 +208,7 @@ tests/
   - [x] 9.3 Migrations `Inicial` e `AjustesDeIntegridade`: índice único parcial de solicitação ativa, `UNIQUE(agencia, numero)` e `UNIQUE(documento)`
   - [x] 9.4 Teste de carga de transações e plano de execução (`EXPLAIN ANALYZE`): ver `docs/carga/resultado-explain.md`
   - [ ] 9.5 Outbox
-  - [ ] 9.6 Mapear violação de unicidade (`23505`) para erro de negócio (`JaExisteAtiva`, conta duplicada)
+  - [x] 9.6 Mapear violação de unicidade (`23505`) para erro de negócio (`JaExisteAtiva`, conta duplicada): `UnicidadeVioladaException` na SharedKernel, traduzida no `UnitOfWork` e tratada no handler
 - [ ] Etapa 10 — .NET Aspire AppHost (Postgres, RabbitMQ, Keycloak) + API (idempotência, ProblemDetails, Scalar)
   - [ ] 10.1 JWT com Keycloak: realm importado, policies por permissão, autorização por recurso (IDOR)
   - [ ] 10.2 Segurança da borda: scopes × roles, HTTPS, CORS restrito, cabeçalhos de segurança, **rate limiting**, segredos fora do código
