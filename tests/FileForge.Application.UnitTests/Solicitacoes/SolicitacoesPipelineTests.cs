@@ -1,3 +1,4 @@
+using FileForge.Application.Abstractions.Persistencia;
 using FileForge.Application.Abstractions.Seguranca;
 using FileForge.Application.Solicitacoes.Criar;
 using FileForge.Application.Solicitacoes.Obter;
@@ -129,6 +130,40 @@ public sealed class SolicitacoesPipelineTests : IDisposable
         var segunda = await mediator.Send(new CriarSolicitacaoCommand(Dia10));
 
         Assert.Equal(DomainErrors.SolicitacaoArquivo.JaExisteAtiva, segunda.Error);
+    }
+
+    [Fact]
+    public async Task Criar_CorridaQueViolaOIndice_DevolveConflitoEmVezDeExcecao()
+    {
+        var mediator = ComoUsuarioComCommitQueViolaUnicidade(RestricoesDeBanco.SolicitacaoAtiva, UsuarioFake.Ana());
+
+        var result = await mediator.Send(new CriarSolicitacaoCommand(Dia10));
+
+        Assert.Equal(DomainErrors.SolicitacaoArquivo.JaExisteAtiva, result.Error);
+    }
+
+    [Fact]
+    public async Task Criar_ViolacaoDeOutraRestricao_NaoEhEngolida()
+    {
+        var mediator = ComoUsuarioComCommitQueViolaUnicidade(RestricoesDeBanco.ContaAgenciaNumero, UsuarioFake.Ana());
+
+        await Assert.ThrowsAsync<UnicidadeVioladaException>(() =>
+            mediator.Send(new CriarSolicitacaoCommand(Dia10)));
+    }
+
+    private IMediator ComoUsuarioComCommitQueViolaUnicidade(string restricao, IUsuarioAtual usuario)
+    {
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddApplication()
+            .AddSingleton<ISolicitacaoArquivoRepository>(_repo)
+            .AddSingleton<IUnitOfWork>(new UnitOfWorkQueViolaUnicidade(restricao))
+            .AddSingleton<IDateTimeProvider>(_relogio)
+            .AddSingleton(usuario);
+
+        var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
+        _providers.Add(provider);
+        return provider.CreateScope().ServiceProvider.GetRequiredService<IMediator>();
     }
 
     [Fact]

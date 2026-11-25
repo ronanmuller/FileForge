@@ -1,3 +1,4 @@
+using FileForge.Application.Abstractions.Persistencia;
 using FileForge.Application.Abstractions.Seguranca;
 using FileForge.Domain.Erros;
 using FileForge.Domain.Events;
@@ -49,7 +50,15 @@ public sealed class CriarSolicitacaoHandler(
 
         var solicitacao = SolicitacaoArquivo.Criar(clienteId, data.Value, usuario.Id, relogio);
         repositorio.Adicionar(solicitacao);
-        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (UnicidadeVioladaException ex) when (ex.Restricao == RestricoesDeBanco.SolicitacaoAtiva)
+        {
+            return DomainErrors.SolicitacaoArquivo.JaExisteAtiva;
+        }
 
         return solicitacao.Id.Value;
     }

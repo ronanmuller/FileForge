@@ -7,6 +7,7 @@
     <PackageReference Include="EFCore.NamingConventions" />
     <ProjectReference Include="..\..\src\BuildingBlocks\FileForge.Mediator\FileForge.Mediator.csproj" />
     <ProjectReference Include="..\..\src\Core\FileForge.Domain\FileForge.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Core\FileForge.Application\FileForge.Application.csproj" />
     <ProjectReference Include="..\..\src\FileForge.Infrastructure\FileForge.Infrastructure.csproj" />
   </ItemGroup>
 

@@ -17,7 +17,7 @@ public sealed class RepositoriosPostgresTests : IAsyncLifetime
 {
     private static readonly string Conn =
         Environment.GetEnvironmentVariable("FILEFORGE_TEST_CONN")
-        ?? "Host=localhost;Port=5432;Database=fileforge_test;Username=fileforge;Password=fileforge";
+        ?? "Host=localhost;Port=5432;Database=fileforge_test_repositorios;Username=fileforge;Password=fileforge";
 
     private readonly RelogioTeste _relogio = new();
     private ServiceProvider _provider = null!;

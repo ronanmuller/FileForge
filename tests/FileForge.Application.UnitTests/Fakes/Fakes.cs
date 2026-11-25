@@ -66,3 +66,10 @@ internal sealed class UnitOfWorkFake : IUnitOfWork
         return Task.FromResult(1);
     }
 }
+
+/// <summary>Simula a corrida: o commit é recusado pelo índice único, como o banco faria.</summary>
+internal sealed class UnitOfWorkQueViolaUnicidade(string restricao) : IUnitOfWork
+{
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<int>(new UnicidadeVioladaException(restricao));
+}
