@@ -56,6 +56,14 @@ internal sealed class SolicitacaoRepositorioFake : ISolicitacaoArquivoRepository
     public void Adicionar(SolicitacaoArquivo solicitacao) => Itens.Add(solicitacao);
 }
 
+/// <summary>Simula a conclusão sem Outbox: a Application só conhece o contrato, a Infrastructure grava de fato.</summary>
+internal sealed class RegistradorDeEventosFake : IRegistradorDeEventos
+{
+    public int Registros { get; private set; }
+
+    public void RegistrarEventos() => Registros++;
+}
+
 internal sealed class UnitOfWorkFake : IUnitOfWork
 {
     public int Commits { get; private set; }

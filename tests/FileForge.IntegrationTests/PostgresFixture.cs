@@ -1,8 +1,12 @@
+using FileForge.Application;
+using FileForge.Application.Abstractions.Seguranca;
+using FileForge.Domain.ValueObjects;
 using FileForge.Infrastructure;
 using FileForge.Infrastructure.Persistence;
 using FileForge.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace FileForge.IntegrationTests;
 
@@ -21,7 +25,13 @@ public abstract class PostgresFixture(string nomeDoBanco) : IAsyncLifetime
     public async Task InitializeAsync()
     {
         var conexao = ConexaoDeTeste(nomeDoBanco);
-        Provider = new ServiceCollection().AddInfrastructure(conexao).BuildServiceProvider();
+        Provider = new ServiceCollection()
+            .AddInfrastructure(conexao)
+            .AddApplication()
+            .AddLogging()
+            .AddSingleton<IDateTimeProvider>(Relogio)
+            .AddSingleton<IUsuarioAtual>(new UsuarioDeTeste())
+            .BuildServiceProvider();
 
         var db = Provider.GetRequiredService<FileForgeDbContext>();
         await db.Database.EnsureDeletedAsync();
@@ -60,4 +70,13 @@ public sealed class RelogioTeste : IDateTimeProvider
 {
     public DateTime UtcNow => new(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
     public DateOnly Hoje => DateOnly.FromDateTime(UtcNow);
+}
+
+/// <summary>Usuário autenticado com todas as permissões, para o pipeline não bloquear os testes de fluxo.</summary>
+public sealed class UsuarioDeTeste : IUsuarioAtual
+{
+    public bool Autenticado => true;
+    public string Id => "teste";
+    public ClienteId? ClienteId => null;
+    public bool PossuiPermissao(string permissao) => true;
 }

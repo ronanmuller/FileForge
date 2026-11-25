@@ -34,6 +34,7 @@ public sealed class SolicitacoesPipelineTests : IDisposable
             .AddApplication()
             .AddSingleton<ISolicitacaoArquivoRepository>(_repo)
             .AddSingleton<IUnitOfWork>(_uow)
+            .AddSingleton<IRegistradorDeEventos>(new RegistradorDeEventosFake())
             .AddSingleton<IDateTimeProvider>(_relogio)
             .AddSingleton(usuario);
 
@@ -157,6 +158,7 @@ public sealed class SolicitacoesPipelineTests : IDisposable
             .AddApplication()
             .AddSingleton<ISolicitacaoArquivoRepository>(_repo)
             .AddSingleton<IUnitOfWork>(new UnitOfWorkQueViolaUnicidade(restricao))
+            .AddSingleton<IRegistradorDeEventos>(new RegistradorDeEventosFake())
             .AddSingleton<IDateTimeProvider>(_relogio)
             .AddSingleton(usuario);
 

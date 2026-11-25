@@ -1,4 +1,5 @@
 using FileForge.Domain.Interfaces;
+using FileForge.Infrastructure.Outbox;
 using FileForge.Infrastructure.Persistence;
 using FileForge.Infrastructure.Persistence.Repositories;
 using FileForge.SharedKernel.Abstractions;
@@ -23,6 +24,7 @@ public static class DependencyInjection
                    .UseSnakeCaseNamingConvention());
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IRegistradorDeEventos, RegistradorDeOutbox>();
         services.AddSingleton<IDateTimeProvider, RelogioDoSistema>();
         services.AddScoped<IClienteRepository, ClienteRepository>();
         services.AddScoped<ITransacaoRepository, TransacaoRepository>();

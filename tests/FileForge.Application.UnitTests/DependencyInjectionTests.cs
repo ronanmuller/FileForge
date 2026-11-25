@@ -32,6 +32,7 @@ public class DependencyInjectionTests
             .AddSingleton<Abstractions.Seguranca.IUsuarioAtual>(UsuarioFake.Ana())
             .AddSingleton<ISolicitacaoArquivoRepository>(new SolicitacaoRepositorioFake())
             .AddSingleton<SharedKernel.Abstractions.IUnitOfWork>(new UnitOfWorkFake())
+            .AddSingleton<SharedKernel.Abstractions.IRegistradorDeEventos>(new RegistradorDeEventosFake())
             .AddSingleton<SharedKernel.Abstractions.IDateTimeProvider>(new RelogioFixo());
 
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });

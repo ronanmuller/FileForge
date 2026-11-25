@@ -11,7 +11,7 @@ public sealed record ProcessamentoIniciado(SolicitacaoArquivoId SolicitacaoId, i
     : DomainEvent(OccurredOnUtc);
 
 public sealed record ArquivoGerado(SolicitacaoArquivoId SolicitacaoId, string NomeArquivo, DateTime OccurredOnUtc)
-    : DomainEvent(OccurredOnUtc);
+    : DomainEvent(OccurredOnUtc), IEventoDeIntegracao;
 
 public sealed record ProcessamentoFalhou(SolicitacaoArquivoId SolicitacaoId, string Motivo, int Tentativas, DateTime OccurredOnUtc)
     : DomainEvent(OccurredOnUtc);
