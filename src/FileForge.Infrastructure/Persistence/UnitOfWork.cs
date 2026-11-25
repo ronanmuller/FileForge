@@ -11,15 +11,13 @@ namespace FileForge.Infrastructure.Persistence;
 /// </summary>
 public sealed class UnitOfWork(FileForgeDbContext dbContext) : IUnitOfWork
 {
-    private const string _codigoUniqueViolation = "23505";
-
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             return await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: _codigoUniqueViolation } pg)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg)
         {
             throw new UnicidadeVioladaException(pg.ConstraintName ?? "desconhecida", ex);
         }
