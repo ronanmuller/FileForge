@@ -96,7 +96,7 @@ Regra que **sempre** precisa ser verdadeira. Garantir invariantes é o motivo de
 |---|---|---|
 | Dinheiro nunca negativo | `Dinheiro` | `Criar` recusa |
 | Data de referência não está no futuro | `DataReferencia` | `Criar` compara com `IDateTimeProvider` |
-| Conta não duplicada no cliente | `Cliente` | só ele enxerga todas as contas |
+| Conta não duplicada no sistema | banco (`UNIQUE(agencia, numero)`) + `IContaRepository` na Application | o `Cliente` não enxerga contas de outros clientes; ver decisão 47 |
 | Transição de status válida | `SolicitacaoArquivo` | `private set` + métodos |
 | Uma solicitação **ativa** por cliente/data | **Application** (+ índice único no banco) | envolve vários aggregates — ver §4.4 |
 
@@ -707,6 +707,7 @@ No Visual Studio: **Test Explorer** (`Ctrl+E, T`) → botão direito no teste �
 | 44 | Tempo real | Redis (cache + Pub/Sub) e SSE para atual
 | 45 | Integridade | SHA-256 do arquivo guardado no banco (`ChecksumArquivo`), no evento, no trailer e no bucket; HMAC-SHA256 no webhook | hash sozinho detecta corrupção; com segredo (HMAC/assinatura) detecta fraude e autoria | `GetHashCode` nunca é usado para segurança; ver §14 |
 | 46 | Idempotência | `Idempotency-Key` com lock atômico no Redis (`SET NX` + TTL + token de dono), resposta guardada e hash do corpo; banco como garantia final (`ON CONFLICT`) | lock rápido na borda para reenvio e clique duplo; lock sozinho pode expirar e não tem transação com o banco | ver §8.13; substitui o desenho da decisão 42 |
+| 47 | Modelo | Conta com unicidade **global** (`UNIQUE(agencia, numero)`); documento único em `clientes` | conta identifica uma conta bancária, não um cadastro; CPF identifica uma pessoa. Conta conjunta fica fora do escopo | a checagem sai do `Cliente` e vai para `IContaRepository` + banco; `cliente_id` continua shadow na owned entity (ver §8.13 e a migration `AjustesDeIntegridade`) |
 
 ---
 
