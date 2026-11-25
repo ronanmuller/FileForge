@@ -16,8 +16,8 @@ public enum StatusSolicitacao
 }
 
 /// <summary>
-/// Centro do domínio. Máquina de status:
-/// Pendente → Processando → Concluida | Falhou; Falhou → Pendente (reprocessar).
+/// Centro do domÃ­nio. MÃ¡quina de status:
+/// Pendente â†’ Processando â†’ Concluida | Falhou; Falhou â†’ Pendente (reprocessar).
 /// </summary>
 public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
 {
@@ -37,8 +37,8 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
     public DataReferencia DataReferencia { get; private set; } = null!;
 
     /// <summary>
-    /// Quem pediu (claim <c>sub</c> do token, já autorizado na criação). O Worker não recebe o JWT do usuário:
-    /// a autoria viaja com a solicitação e com o evento.
+    /// Quem pediu (claim <c>sub</c> do token, jÃ¡ autorizado na criaÃ§Ã£o). O Worker nÃ£o recebe o JWT do usuÃ¡rio:
+    /// a autoria viaja com a solicitaÃ§Ã£o e com o evento.
     /// </summary>
     public string SolicitadoPor { get; private set; } = string.Empty;
     public StatusSolicitacao Status { get; private set; }
@@ -48,8 +48,11 @@ public sealed class SolicitacaoArquivo : AggregateRoot<SolicitacaoArquivoId>
     public string? MotivoFalha { get; private set; }
     public int Tentativas { get; private set; }
 
-    /// <summary>Ativa = ainda não concluída nem falhada; base da idempotência por cliente/data.</summary>
-    public bool Ativa => Status is StatusSolicitacao.Pendente or StatusSolicitacao.Processando;
+    /// <summary>Ativa = ainda nÃ£o concluÃ­da nem falhada; base da idempotÃªncia por cliente/data.</summary>
+    public bool Ativa => StatusAtivos.Contains(Status);
+
+    /// <summary>Status que contam como "ativa". Fonte Ãºnica: a spec, o Ã­ndice SQL e os testes usam esta lista.</summary>
+    public static readonly StatusSolicitacao[] StatusAtivos = [StatusSolicitacao.Pendente, StatusSolicitacao.Processando];
 
     public static SolicitacaoArquivo Criar(ClienteId clienteId, DataReferencia dataReferencia, string solicitadoPor, IDateTimeProvider relogio)
     {

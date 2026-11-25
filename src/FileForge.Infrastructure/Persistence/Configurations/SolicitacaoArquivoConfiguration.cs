@@ -45,12 +45,15 @@ internal sealed class SolicitacaoArquivoConfiguration : IEntityTypeConfiguration
         builder.HasIndex(x => new { x.ClienteId, x.DataReferencia })
             .HasDatabaseName("ux_solicitacao_ativa")
             .IsUnique()
-            .HasFilter("status IN ('Pendente', 'Processando')");
+            .HasFilter(FiltroAtivas());
     }
 
+    private static string FiltroAtivas() =>
+        $"status IN ({string.Join(", ", SolicitacaoArquivo.StatusAtivos.Select(s => $"'{s}'"))})";
+
     /// <summary>
-    /// Usado apenas na hidratação do EF para reconstruir <see cref="DataReferencia"/> sem depender do relógio da aplicação.
-    /// Como o valor já veio persistido, qualquer data &lt;= hoje UTC é válida.
+    /// Usado apenas na hidrataÃ§Ã£o do EF para reconstruir <see cref="DataReferencia"/> sem depender do relÃ³gio da aplicaÃ§Ã£o.
+    /// Como o valor jÃ¡ veio persistido, qualquer data &lt;= hoje UTC Ã© vÃ¡lida.
     /// </summary>
     private sealed class RelogioDePersistencia : FileForge.SharedKernel.Abstractions.IDateTimeProvider
     {

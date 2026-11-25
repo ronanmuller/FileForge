@@ -1,52 +1,18 @@
 using FileForge.Domain.Interfaces;
 using FileForge.Domain.Models;
 using FileForge.Domain.ValueObjects;
-using FileForge.Infrastructure;
 using FileForge.Infrastructure.Persistence;
-using FileForge.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FileForge.IntegrationTests.Persistencia;
 
 /// <summary>
-/// Repositórios contra um PostgreSQL real. Usa FILEFORGE_TEST_CONN ou o container local (porta 5432).
-/// O banco é recriado do zero para cada teste, então um teste não enxerga dados de outro.
+/// Repositórios contra um PostgreSQL real. Configuração e ciclo de vida vêm de <see cref="PostgresFixture"/>.
 /// </summary>
-public sealed class RepositoriosPostgresTests : IAsyncLifetime
+public sealed class RepositoriosPostgresTests() : PostgresFixture("fileforge_test_repositorios")
 {
-    private static readonly string Conn =
-        Environment.GetEnvironmentVariable("FILEFORGE_TEST_CONN")
-        ?? "Host=localhost;Port=5432;Database=fileforge_test_repositorios;Username=fileforge;Password=fileforge";
-
-    private readonly RelogioTeste _relogio = new();
-    private ServiceProvider _provider = null!;
-
-    public async Task InitializeAsync()
-    {
-        _provider = new ServiceCollection().AddInfrastructure(Conn).BuildServiceProvider();
-
-        var db = _provider.GetRequiredService<FileForgeDbContext>();
-        await db.Database.EnsureDeletedAsync();
-        await db.Database.EnsureCreatedAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        var db = _provider.GetRequiredService<FileForgeDbContext>();
-        await db.Database.EnsureDeletedAsync();
-        await _provider.DisposeAsync();
-    }
-
-    private AsyncServiceScope Escopo() => _provider.CreateAsyncScope();
-
-    private async Task Salvar(Action<FileForgeDbContext> adicionar)
-    {
-        await using var escopo = Escopo();
-        var db = escopo.ServiceProvider.GetRequiredService<FileForgeDbContext>();
-        adicionar(db);
-        await db.SaveChangesAsync();
-    }
+    private RelogioTeste _relogio => Relogio;
 
     [Fact]
     public async Task Cliente_ComContas_PersisteELeEmTransacao()
@@ -163,11 +129,5 @@ public sealed class RepositoriosPostgresTests : IAsyncLifetime
         Assert.Equal(2, lidas.Count);
         Assert.DoesNotContain("fora da data", lidas);
         Assert.DoesNotContain("outra conta", lidas);
-    }
-
-    private sealed class RelogioTeste : IDateTimeProvider
-    {
-        public DateTime UtcNow => new(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
-        public DateOnly Hoje => DateOnly.FromDateTime(UtcNow);
     }
 }

@@ -12,10 +12,10 @@ namespace FileForge.Domain.Specifications;
 public static class SolicitacaoArquivoSpecs
 {
     public static Expression<Func<SolicitacaoArquivo, bool>> Ativa =>
-        s => s.Status == StatusSolicitacao.Pendente || s.Status == StatusSolicitacao.Processando;
+        s => SolicitacaoArquivo.StatusAtivos.Contains(s.Status);
 
     public static Expression<Func<SolicitacaoArquivo, bool>> AtivaDoClienteNaData(ClienteId clienteId, DataReferencia data) =>
         s => s.ClienteId == clienteId
              && s.DataReferencia == data
-             && (s.Status == StatusSolicitacao.Pendente || s.Status == StatusSolicitacao.Processando);
+             && SolicitacaoArquivo.StatusAtivos.Contains(s.Status);
 }

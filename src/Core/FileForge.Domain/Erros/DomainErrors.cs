@@ -9,7 +9,6 @@ public static class DomainErrors
     {
         public static readonly Error IdVazio = Error.Validation("Cliente.IdVazio", "O identificador do cliente é obrigatório.");
         public static readonly Error NomeObrigatorio = Error.Validation("Cliente.NomeObrigatorio", "O nome do cliente é obrigatório.");
-        public static readonly Error ContaDuplicada = Error.Conflict("Cliente.ContaDuplicada", "O cliente já possui uma conta com esta agência e número.");
     }
 
     public static class Conta

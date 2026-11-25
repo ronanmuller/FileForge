@@ -1,4 +1,3 @@
-using FileForge.Application.Abstractions.Persistencia;
 using FileForge.Application.Abstractions.Seguranca;
 using FileForge.Application.Solicitacoes.Criar;
 using FileForge.Application.Solicitacoes.Obter;
@@ -135,7 +134,7 @@ public sealed class SolicitacoesPipelineTests : IDisposable
     [Fact]
     public async Task Criar_CorridaQueViolaOIndice_DevolveConflitoEmVezDeExcecao()
     {
-        var mediator = ComoUsuarioComCommitQueViolaUnicidade(RestricoesDeBanco.SolicitacaoAtiva, UsuarioFake.Ana());
+        var mediator = ComoUsuarioComCommitQueViolaUnicidade(RestricaoUnica.SolicitacaoAtiva, UsuarioFake.Ana());
 
         var result = await mediator.Send(new CriarSolicitacaoCommand(Dia10));
 
@@ -145,13 +144,13 @@ public sealed class SolicitacoesPipelineTests : IDisposable
     [Fact]
     public async Task Criar_ViolacaoDeOutraRestricao_NaoEhEngolida()
     {
-        var mediator = ComoUsuarioComCommitQueViolaUnicidade(RestricoesDeBanco.ContaAgenciaNumero, UsuarioFake.Ana());
+        var mediator = ComoUsuarioComCommitQueViolaUnicidade(RestricaoUnica.ContaAgenciaNumero, UsuarioFake.Ana());
 
         await Assert.ThrowsAsync<UnicidadeVioladaException>(() =>
             mediator.Send(new CriarSolicitacaoCommand(Dia10)));
     }
 
-    private IMediator ComoUsuarioComCommitQueViolaUnicidade(string restricao, IUsuarioAtual usuario)
+    private IMediator ComoUsuarioComCommitQueViolaUnicidade(RestricaoUnica restricao, IUsuarioAtual usuario)
     {
         var services = new ServiceCollection()
             .AddLogging()

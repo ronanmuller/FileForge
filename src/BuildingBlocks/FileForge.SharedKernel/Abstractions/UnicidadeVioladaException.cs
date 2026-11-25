@@ -4,8 +4,8 @@ namespace FileForge.SharedKernel.Abstractions;
 /// Violação de unicidade detectada pela persistência. A Infrastructure a lança ao traduzir o erro do banco;
 /// a Application a converte em erro de negócio, sem conhecer o provedor.
 /// </summary>
-public sealed class UnicidadeVioladaException(string restricao, Exception? interna = null)
+public sealed class UnicidadeVioladaException(RestricaoUnica restricao, Exception? interna = null)
     : Exception($"Violação de unicidade: {restricao}.", interna)
 {
-    public string Restricao { get; } = restricao;
+    public RestricaoUnica Restricao { get; } = restricao;
 }

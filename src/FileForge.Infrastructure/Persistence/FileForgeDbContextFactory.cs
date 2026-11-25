@@ -11,13 +11,16 @@ namespace FileForge.Infrastructure.Persistence;
 /// </summary>
 internal sealed class FileForgeDbContextFactory : IDesignTimeDbContextFactory<FileForgeDbContext>
 {
-    private const string _connectionStringDesignTime =
-        "Host=localhost;Port=5432;Database=fileforge;Username=fileforge;Password=fileforge";
+    private const string _variavelConexao = "FILEFORGE_DESIGN_CONN";
 
     public FileForgeDbContext CreateDbContext(string[] args)
     {
+        var conexao = Environment.GetEnvironmentVariable(_variavelConexao)
+            ?? throw new InvalidOperationException(
+                $"Defina a variável de ambiente {_variavelConexao} com a connection string do PostgreSQL para gerar migrations.");
+
         var options = new DbContextOptionsBuilder<FileForgeDbContext>()
-            .UseNpgsql(_connectionStringDesignTime)
+            .UseNpgsql(conexao)
             .UseSnakeCaseNamingConvention()
             .Options;
 

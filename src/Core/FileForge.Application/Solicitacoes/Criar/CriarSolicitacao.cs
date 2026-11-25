@@ -1,4 +1,3 @@
-using FileForge.Application.Abstractions.Persistencia;
 using FileForge.Application.Abstractions.Seguranca;
 using FileForge.Domain.Erros;
 using FileForge.Domain.Events;
@@ -55,7 +54,7 @@ public sealed class CriarSolicitacaoHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (UnicidadeVioladaException ex) when (ex.Restricao == RestricoesDeBanco.SolicitacaoAtiva)
+        catch (UnicidadeVioladaException ex) when (ex.Restricao == RestricaoUnica.SolicitacaoAtiva)
         {
             return DomainErrors.SolicitacaoArquivo.JaExisteAtiva;
         }

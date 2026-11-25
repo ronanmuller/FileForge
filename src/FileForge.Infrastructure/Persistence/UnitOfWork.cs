@@ -19,7 +19,15 @@ public sealed class UnitOfWork(FileForgeDbContext dbContext) : IUnitOfWork
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg)
         {
-            throw new UnicidadeVioladaException(pg.ConstraintName ?? "desconhecida", ex);
+            throw new UnicidadeVioladaException(MapearRestricao(pg.ConstraintName), ex);
         }
     }
+
+    private static RestricaoUnica MapearRestricao(string? nomeDoIndice) => nomeDoIndice switch
+    {
+        "ux_solicitacao_ativa" => RestricaoUnica.SolicitacaoAtiva,
+        "ux_contas_agencia_numero" => RestricaoUnica.ContaAgenciaNumero,
+        "ux_clientes_documento" => RestricaoUnica.ClienteDocumento,
+        _ => RestricaoUnica.Desconhecida
+    };
 }
