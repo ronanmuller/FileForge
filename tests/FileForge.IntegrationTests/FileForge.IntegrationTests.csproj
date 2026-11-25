@@ -2,8 +2,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
     <ProjectReference Include="..\..\src\BuildingBlocks\FileForge.Mediator\FileForge.Mediator.csproj" />
     <ProjectReference Include="..\..\src\Core\FileForge.Domain\FileForge.Domain.csproj" />
+    <ProjectReference Include="..\..\src\FileForge.Infrastructure\FileForge.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
