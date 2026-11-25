@@ -37,9 +37,6 @@ public sealed class Cliente : AggregateRoot<ClienteId>
         if (conta.IsFailure)
             return conta;
 
-        if (_contas.Any(c => c.Mesma(conta.Value.Agencia, conta.Value.Numero)))
-            return DomainErrors.Cliente.ContaDuplicada;
-
         _contas.Add(conta.Value);
         return conta;
     }

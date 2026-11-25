@@ -39,14 +39,14 @@ public class ClienteTests
     }
 
     [Fact]
-    public void AdicionarConta_Duplicada_DeveFalhar()
+    public void AdicionarConta_MesmaContaEmOutroCliente_DominioNaoBloqueia_UnicidadeEhDoBanco()
     {
-        var cliente = Um.Cliente().ComConta("0001", "123456").Build();
+        _ = Um.Cliente().ComConta("0001", "123456").Build();
+        var bruno = NovoCliente();
 
-        var result = cliente.AdicionarConta(" 0001 ", "123456");
+        var result = bruno.AdicionarConta("0001", "123456");
 
-        Assert.Equal(DomainErrors.Cliente.ContaDuplicada, result.Error);
-        Assert.Single(cliente.Contas);
+        Assert.True(result.IsSuccess);
     }
 
     [Theory]

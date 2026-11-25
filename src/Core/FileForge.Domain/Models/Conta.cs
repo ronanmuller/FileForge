@@ -33,8 +33,6 @@ public sealed class Conta : Entity<ContaId>
         return new Conta(ContaId.Novo(), agencia!, numero!);
     }
 
-    internal bool Mesma(string agencia, string numero) => Agencia == agencia && Numero == numero;
-
     private static bool SomenteDigitos(string? valor, int maximo) =>
         !string.IsNullOrEmpty(valor) && valor.Length <= maximo && valor.All(char.IsDigit);
 }
