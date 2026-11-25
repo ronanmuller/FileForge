@@ -11,4 +11,8 @@
     <InternalsVisibleTo Include="FileForge.Application.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Abstractions\Persistencia\" />
+  </ItemGroup>
+
 </Project>

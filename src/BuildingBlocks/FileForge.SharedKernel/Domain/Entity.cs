@@ -19,7 +19,13 @@ public abstract class Entity<TId> : IEquatable<Entity<TId>> where TId : notnull
     public static bool operator !=(Entity<TId>? left, Entity<TId>? right) => !Equals(left, right);
 }
 
-public abstract class AggregateRoot<TId> : Entity<TId> where TId : notnull
+public interface IHasDomainEvents
+{
+    IReadOnlyCollection<IDomainEvent> DomainEvents { get; }
+    void ClearDomainEvents();
+}
+
+public abstract class AggregateRoot<TId> : Entity<TId>, IHasDomainEvents where TId : notnull
 {
     private readonly List<IDomainEvent> _domainEvents = [];
 

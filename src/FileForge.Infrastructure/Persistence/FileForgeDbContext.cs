@@ -1,11 +1,11 @@
 using FileForge.Domain.Models;
+using FileForge.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace FileForge.Infrastructure.Persistence;
 
 /// <summary>
-/// Contexto de escrita do domínio. Nesta etapa ele só persiste os aggregates e será a base do Unit of Work.
-/// Outbox e repositórios concretos entram no próximo passo.
+/// Contexto de escrita do domínio. Persiste os aggregates e as mensagens do Outbox na mesma transação.
 /// </summary>
 public sealed class FileForgeDbContext(DbContextOptions<FileForgeDbContext> options) : DbContext(options)
 {
@@ -13,6 +13,7 @@ public sealed class FileForgeDbContext(DbContextOptions<FileForgeDbContext> opti
     public DbSet<Conta> Contas => Set<Conta>();
     public DbSet<Transacao> Transacoes => Set<Transacao>();
     public DbSet<SolicitacaoArquivo> SolicitacoesArquivo => Set<SolicitacaoArquivo>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

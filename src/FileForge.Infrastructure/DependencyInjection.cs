@@ -23,6 +23,7 @@ public static class DependencyInjection
                    .UseSnakeCaseNamingConvention());
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddSingleton<IDateTimeProvider, RelogioDoSistema>();
         services.AddScoped<IClienteRepository, ClienteRepository>();
         services.AddScoped<ITransacaoRepository, TransacaoRepository>();
         services.AddScoped<ISolicitacaoArquivoRepository, SolicitacaoArquivoRepository>();
