@@ -3,6 +3,7 @@
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />
     <ProjectReference Include="..\..\src\Core\FileForge.Application\FileForge.Application.csproj" />
+    <ProjectReference Include="..\..\src\FileForge.Infrastructure\FileForge.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

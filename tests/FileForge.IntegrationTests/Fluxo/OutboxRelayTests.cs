@@ -69,6 +69,7 @@ public sealed class OutboxRelayTests() : PostgresFixture("fileforge_test_relay")
     {
         var provedor = new ServiceCollection()
             .AddInfrastructure(ConexaoAtual)
+            .AddOutboxRelay()
             .AddLogging()
             .AddSingleton<IDateTimeProvider>(Relogio)
             .AddSingleton(publicador)

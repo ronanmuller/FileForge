@@ -1,3 +1,4 @@
+using FileForge.Application.Solicitacoes.Criar;
 using FileForge.Domain.Erros;
 using FileForge.Domain.Events;
 using FileForge.Domain.Models;

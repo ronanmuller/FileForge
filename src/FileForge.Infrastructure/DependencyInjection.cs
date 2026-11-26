@@ -25,7 +25,6 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IRegistradorDeEventos, RegistradorDeOutbox>();
-        services.AddSingleton<IDateTimeProvider, RelogioDoSistema>();
         services.AddScoped<IClienteRepository, ClienteRepository>();
         services.AddScoped<ITransacaoRepository, TransacaoRepository>();
         services.AddScoped<ISolicitacaoArquivoRepository, SolicitacaoArquivoRepository>();

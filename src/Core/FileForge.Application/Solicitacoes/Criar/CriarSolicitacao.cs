@@ -1,6 +1,5 @@
 using FileForge.Application.Abstractions.Seguranca;
 using FileForge.Domain.Erros;
-using FileForge.Domain.Events;
 using FileForge.Domain.Interfaces;
 using FileForge.Domain.Models;
 using FileForge.Domain.Specifications;
@@ -29,6 +28,7 @@ public sealed class CriarSolicitacaoValidator : AbstractValidator<CriarSolicitac
 public sealed class CriarSolicitacaoHandler(
     ISolicitacaoArquivoRepository repositorio,
     IUnitOfWork unitOfWork,
+    IRegistradorDeEventos registrador,
     IUsuarioAtual usuario,
     IDateTimeProvider relogio) : IRequestHandler<CriarSolicitacaoCommand, Result<Guid>>
 {
@@ -49,6 +49,7 @@ public sealed class CriarSolicitacaoHandler(
 
         var solicitacao = SolicitacaoArquivo.Criar(clienteId, data.Value, usuario.Id, relogio);
         repositorio.Adicionar(solicitacao);
+        registrador.RegistrarEventos();
 
         try
         {

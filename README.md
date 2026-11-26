@@ -169,19 +169,22 @@ Complementos:
 ```
 src/
   BuildingBlocks/
-    FileForge.SharedKernel      ✅ Entity, AggregateRoot, ValueObject, DomainEvent, Result (+ Map/Bind/Match), IUnitOfWork, IDateTimeProvider
+    FileForge.SharedKernel      ✅ Entity, AggregateRoot, ValueObject, DomainEvent, IEventoDeIntegracao, Result (+ Map/Bind/Match), IUnitOfWork, IDateTimeProvider (SystemDateTimeProvider), IRegistradorDeEventos
     FileForge.Mediator          ✅ IMediator (ISender/IPublisher), IRequest, INotification, IPipelineBehavior, DI
   Core/
-    FileForge.Domain            🚧 referencia SharedKernel (NÃO referencia Mediator)
-    FileForge.Application       ✅ casos de uso (Criar/Obter/Reprocessar), behaviors (Logging, Autorização, Validação), IUsuarioAtual, IEventBus
-  FileForge.Infrastructure      ⏳
+    FileForge.Domain            ✅ aggregates, VOs, specifications, eventos (SolicitacaoArquivoCriada e ArquivoGerado como IEventoDeIntegracao), interfaces de repositório
+    FileForge.Application       ✅ casos de uso (Criar/Obter/Concluir/Reprocessar), behaviors (Logging, Autorização, Validação), IUsuarioAtual, IEventBus
+  FileForge.Infrastructure      ✅ DbContext (PostgreSQL), UnitOfWork, repositórios, migrations, Outbox (RegistradorDeOutbox, OutboxRelay, OutboxLog)
   FileForge.Api                 ⏳
   FileForge.Worker              ⏳
   FileForge.AppHost             ⏳ .NET Aspire
 tests/
   FileForge.Mediator.UnitTests      ✅
   FileForge.SharedKernel.UnitTests  ✅
-  FileForge.Domain.UnitTests        🚧
+  FileForge.Domain.UnitTests        ✅
+  FileForge.Application.UnitTests   ✅
+  FileForge.ArchitectureTests       ✅
+  FileForge.IntegrationTests        ✅
 ```
 
 ---
@@ -202,12 +205,12 @@ tests/
   - [x] 6.4 Aggregate `SolicitacaoArquivo` (status + eventos)
 - [x] Etapa 7 — Interfaces de repositório + Unit of Work
 - [x] Etapa 8 — Application: commands/queries, `ValidationError`, `IUsuarioAtual` + `AuthorizationBehavior`, `IEventBus`
-- [ ] Etapa 9 — Infrastructure: EF Core + PostgreSQL + repositórios + Outbox
+- [x] Etapa 9 — Infrastructure: EF Core + PostgreSQL + repositórios + Outbox
   - [x] 9.1 Projeto, `DbContext`, mapeamentos e Unit of Work (PostgreSQL 17 via Docker)
   - [x] 9.2 Repositórios concretos (`Cliente`, `Transacao`, `SolicitacaoArquivo`, `Conta`)
   - [x] 9.3 Migrations `Inicial` e `AjustesDeIntegridade`: índice único parcial de solicitação ativa, `UNIQUE(agencia, numero)` e `UNIQUE(documento)`
   - [x] 9.4 Teste de carga de transações e plano de execução (`EXPLAIN ANALYZE`): ver `docs/carga/resultado-explain.md`
-  - [ ] 9.5 Outbox
+  - [x] 9.5 Outbox: `OutboxMessage`, `RegistradorDeOutbox` transacional, `OutboxRelay` em background (`AddOutboxRelay`), `SolicitacaoArquivoCriada` e `ArquivoGerado` marcados com `IEventoDeIntegracao`, e `OutboxLog` validado na faixa `2000–2999`
   - [x] 9.6 Mapear violação de unicidade (`23505`) para erro de negócio (`JaExisteAtiva`, conta duplicada): `UnicidadeVioladaException` na SharedKernel, traduzida no `UnitOfWork` e tratada no handler
 - [ ] Etapa 10 — .NET Aspire AppHost (Postgres, RabbitMQ, Keycloak) + API (idempotência, ProblemDetails, Scalar)
   - [ ] 10.1 JWT com Keycloak: realm importado, policies por permissão, autorização por recurso (IDOR)
@@ -241,3 +244,6 @@ tests/
 - **Repository por Aggregate Root**, sem commit próprio (Unit of Work).
 - **Domain não depende do Mediator**: eventos usam `IDomainEvent` do SharedKernel; a ponte fica na Application.
 - **Estrutura de pastas**: `src/BuildingBlocks` (genérico) e `src/Core` (Domain/Application).
+- **Transactional Outbox Pattern**: `SolicitacaoArquivoCriada` e `ArquivoGerado` implementam `IEventoDeIntegracao`; o `RegistradorDeOutbox` captura eventos de agregados em `EntityState.Added` e `Modified` dentro do mesmo `SaveChangesAsync` do `UnitOfWork`, evitando *dual-write* antes da publicação pelo `OutboxRelay` (registrado apenas no host consumidor via `AddOutboxRelay`).
+- **Relógio único (`DRY`/`YAGNI`)**: `IDateTimeProvider` unificado em `SystemDateTimeProvider` (`America/Sao_Paulo` no `SharedKernel`), evitando divergência de data de referência por UTC após 21h.
+- **Catálogo de logs estruturados por camada**: `[LoggerMessage]` validado por testes de arquitetura (`LogDefinitionsTests`), reservando a faixa `2000–2999` para a `Infrastructure`.

@@ -5,7 +5,7 @@ namespace FileForge.Domain.Events;
 
 public sealed record SolicitacaoArquivoCriada(
     SolicitacaoArquivoId SolicitacaoId, ClienteId ClienteId, DateOnly DataReferencia, string SolicitadoPor, DateTime OccurredOnUtc)
-    : DomainEvent(OccurredOnUtc);
+    : DomainEvent(OccurredOnUtc), IEventoDeIntegracao;
 
 public sealed record ProcessamentoIniciado(SolicitacaoArquivoId SolicitacaoId, int Tentativa, DateTime OccurredOnUtc)
     : DomainEvent(OccurredOnUtc);

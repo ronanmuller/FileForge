@@ -13,6 +13,7 @@ public class LogDefinitionsTests
     private static readonly (Assembly Assembly, int Min, int Max)[] Faixas =
     [
         (typeof(FileForge.Application.DependencyInjection).Assembly, 1000, 1999),
+        (typeof(FileForge.Infrastructure.DependencyInjection).Assembly, 2000, 2999),
     ];
 
     private static IEnumerable<(Assembly Assembly, string Metodo, int EventId)> Logs() =>
