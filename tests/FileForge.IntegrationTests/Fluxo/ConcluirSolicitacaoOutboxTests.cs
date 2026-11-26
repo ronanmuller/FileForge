@@ -4,9 +4,9 @@ using FileForge.Domain.ValueObjects;
 using FileForge.Infrastructure.Outbox;
 using FileForge.Infrastructure.Persistence;
 using FileForge.Mediator;
-using FileForge.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using FileForge.SharedKernel.Abstractions;
 
 namespace FileForge.IntegrationTests.Fluxo;
 

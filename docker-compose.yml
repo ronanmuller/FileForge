@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: fileforge-postgres
+    environment:
+      POSTGRES_USER: fileforge
+      POSTGRES_PASSWORD: fileforge
+      POSTGRES_DB: fileforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - fileforge-pgdata:/var/lib/postgresql/data
+
+volumes:
+  fileforge-pgdata:
